@@ -1,0 +1,1157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VC Lead Finder & Website Scanner</title>
+    <!-- Modern Premium Typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0b10;
+            --bg-secondary: #12131c;
+            --bg-glass: rgba(18, 19, 28, 0.7);
+            --border-glass: rgba(255, 255, 255, 0.08);
+            --border-hover: rgba(255, 255, 255, 0.15);
+            
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            
+            --accent-blue: #0070f3;
+            --accent-green: #00df9a;
+            --accent-neon: #00e5ff;
+            --accent-orange: #ff9f43;
+            --accent-red: #ff4757;
+            --accent-pink: #ff007a;
+            --shadow-neon: rgba(0, 229, 255, 0.15);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+            scrollbar-width: thin;
+            scrollbar-color: var(--border-glass) transparent;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-main);
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(0, 112, 243, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(255, 0, 122, 0.05) 0%, transparent 40%);
+            background-attachment: fixed;
+        }
+
+        h1, h2, h3, .logo {
+            font-family: 'Outfit', sans-serif;
+        }
+
+        /* Container & Grid Layout */
+        .app-container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Header Styles */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border-glass);
+        }
+
+        .header-logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .logo-symbol {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--accent-neon), var(--accent-blue));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.25rem;
+            color: var(--bg-primary);
+            box-shadow: 0 0 15px var(--shadow-neon);
+            animation: pulse 3s infinite;
+        }
+
+        .header-logo h1 {
+            font-size: 1.75rem;
+            background: linear-gradient(90deg, #fff, var(--text-muted));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .pipeline-controller {
+            background: var(--bg-glass);
+            border: 1px solid var(--border-glass);
+            padding: 0.75rem 1.5rem;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            backdrop-filter: blur(10px);
+        }
+
+        .controller-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .controller-group label {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+        }
+
+        select {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-glass);
+            color: var(--text-main);
+            padding: 0.5rem 1rem;
+            border-radius: 10px;
+            outline: none;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+        }
+
+        select:focus {
+            border-color: var(--accent-neon);
+        }
+
+        .btn {
+            background: linear-gradient(135deg, var(--accent-neon), var(--accent-blue));
+            color: var(--bg-primary);
+            border: none;
+            padding: 0.6rem 1.5rem;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 229, 255, 0.25);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 229, 255, 0.4);
+        }
+
+        .btn:disabled {
+            background: var(--border-glass);
+            color: var(--text-muted);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        /* Metrics Grid */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .metric-card {
+            background: var(--bg-glass);
+            border: 1px solid var(--border-glass);
+            border-radius: 20px;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-3px);
+            border-color: var(--border-hover);
+        }
+
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: var(--accent-blue);
+        }
+
+        .metric-card.m-first::before { background: var(--accent-pink); }
+        .metric-card.m-redesign::before { background: var(--accent-orange); }
+        .metric-card.m-noweb::before { background: var(--accent-red); }
+        .metric-card.m-fund::before { background: var(--accent-green); }
+
+        .metric-title {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+        }
+
+        .metric-value {
+            font-size: 2.25rem;
+            font-weight: 700;
+            font-family: 'Outfit', sans-serif;
+            margin: 0.25rem 0;
+        }
+
+        .metric-desc {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        /* Main Workspace Split */
+        .workspace {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 2rem;
+            align-items: start;
+        }
+
+        @media (max-width: 1200px) {
+            .workspace {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Content Panel Card */
+        .panel {
+            background: var(--bg-glass);
+            border: 1px solid var(--border-glass);
+            border-radius: 24px;
+            padding: 1.5rem;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .panel-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* Filters & Search */
+        .search-filter-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .search-wrapper {
+            position: relative;
+            flex: 1;
+            min-width: 250px;
+        }
+
+        .search-input {
+            width: 100%;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-glass);
+            color: var(--text-main);
+            padding: 0.6rem 1rem 0.6rem 2.5rem;
+            border-radius: 12px;
+            outline: none;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+        }
+
+        .search-input:focus {
+            border-color: var(--accent-neon);
+            box-shadow: 0 0 10px rgba(0, 229, 255, 0.15);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            pointer-events: none;
+        }
+
+        .filter-tags {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-tag {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-glass);
+            color: var(--text-muted);
+            padding: 0.4rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .filter-tag:hover {
+            border-color: var(--border-hover);
+            color: var(--text-main);
+        }
+
+        .filter-tag.active {
+            background: rgba(0, 229, 255, 0.1);
+            border-color: var(--accent-neon);
+            color: var(--accent-neon);
+        }
+
+        /* Table Design */
+        .table-container {
+            overflow-x: auto;
+            max-height: 600px;
+            position: relative;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 0.9rem;
+        }
+
+        th {
+            background: var(--bg-secondary);
+            color: var(--text-muted);
+            font-weight: 500;
+            padding: 0.8rem 1rem;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            border-bottom: 1px solid var(--border-glass);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        th:hover {
+            color: var(--text-main);
+        }
+
+        td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-glass);
+            vertical-align: middle;
+            transition: background 0.15s ease;
+        }
+
+        tr:hover td {
+            background: rgba(255, 255, 255, 0.02);
+            cursor: pointer;
+        }
+
+        tr.selected td {
+            background: rgba(0, 112, 243, 0.08);
+            border-bottom-color: rgba(0, 112, 243, 0.3);
+        }
+
+        /* Badges */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.6rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .badge-first { background: rgba(255, 0, 122, 0.1); color: var(--accent-pink); border: 1px solid rgba(255, 0, 122, 0.2); }
+        .badge-new { background: rgba(0, 112, 243, 0.1); color: #70a1ff; border: 1px solid rgba(0, 112, 243, 0.2); }
+        .badge-estab { background: rgba(156, 163, 175, 0.1); color: var(--text-muted); }
+        
+        .score-circle {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+        .score-low { background: rgba(255, 71, 87, 0.1); color: var(--accent-red); border: 1px solid rgba(255, 71, 87, 0.2); }
+        .score-mid { background: rgba(255, 159, 67, 0.1); color: var(--accent-orange); border: 1px solid rgba(255, 159, 67, 0.2); }
+        .score-high { background: rgba(0, 223, 154, 0.1); color: var(--accent-green); border: 1px solid rgba(0, 223, 154, 0.2); }
+
+        .domain-tag {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            font-size: 0.8rem;
+        }
+
+        /* Detail Drawer & Terminal Panel */
+        .right-sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        .detail-pane {
+            display: none; /* Show dynamically when row selected */
+        }
+
+        .detail-pane.active {
+            display: block;
+            animation: slideIn 0.3s ease;
+        }
+
+        .detail-header {
+            border-bottom: 1px solid var(--border-glass);
+            padding-bottom: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .detail-name {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 0.25rem;
+        }
+
+        .detail-subtitle {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .info-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .info-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .info-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+        }
+
+        .info-value {
+            font-size: 0.95rem;
+            color: var(--text-main);
+            word-break: break-all;
+        }
+
+        .issue-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+            margin-top: 0.5rem;
+        }
+
+        .issue-item {
+            font-size: 0.8rem;
+            color: var(--accent-orange);
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        /* Outreach Action Grid */
+        .action-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+
+        .btn-action {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-glass);
+            color: var(--text-main);
+            padding: 0.5rem;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.4rem;
+            transition: all 0.2s ease;
+            text-decoration: none;
+        }
+
+        .btn-action:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: var(--border-hover);
+        }
+
+        .btn-action.btn-linkedin {
+            background: rgba(0, 112, 243, 0.1);
+            color: #70a1ff;
+            border-color: rgba(0, 112, 243, 0.2);
+        }
+
+        .btn-action.btn-linkedin:hover {
+            background: rgba(0, 112, 243, 0.18);
+            border-color: rgba(0, 112, 243, 0.4);
+        }
+
+        /* Live Console Logger */
+        .console-panel {
+            background: #050508;
+            border: 1px solid var(--border-glass);
+            border-radius: 20px;
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .console-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: 0.5rem;
+        }
+
+        .console-output {
+            background: transparent;
+            color: #00ff66;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.78rem;
+            line-height: 1.4;
+            height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            padding-right: 0.5rem;
+        }
+
+        .empty-placeholder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            height: 300px;
+            gap: 1rem;
+            text-align: center;
+        }
+
+        .empty-icon {
+            font-size: 3rem;
+            opacity: 0.3;
+        }
+
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--accent-green);
+            border-radius: 50%;
+            animation: pulse-green 1.5s infinite;
+        }
+
+        .pulse-dot.inactive {
+            background: var(--text-muted);
+            animation: none;
+        }
+
+        /* Animations */
+        @keyframes pulse {
+            0% { box-shadow: 0 0 10px rgba(0, 229, 255, 0.15); }
+            50% { box-shadow: 0 0 25px rgba(0, 229, 255, 0.4); }
+            100% { box-shadow: 0 0 10px rgba(0, 229, 255, 0.15); }
+        }
+
+        @keyframes pulse-green {
+            0% { box-shadow: 0 0 0 0 rgba(0, 223, 154, 0.7); }
+            70% { box-shadow: 0 0 0 8px rgba(0, 223, 154, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(0, 223, 154, 0); }
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(20px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header>
+            <div class="header-logo">
+                <div class="logo-symbol">⚡</div>
+                <div>
+                    <h1>VC Lead Engine</h1>
+                    <p style="font-size: 0.75rem; color: var(--text-muted);">SEC EDGAR Crawler & Website Quality Scanner</p>
+                </div>
+            </div>
+            
+            <div class="pipeline-controller">
+                <div class="controller-group">
+                    <label for="lead-type">Type</label>
+                    <select id="lead-type">
+                        <option value="vc">Venture Capital</option>
+                        <option value="pe">Private Equity</option>
+                        <option value="fund2">Fund II Only</option>
+                    </select>
+                </div>
+                <div class="controller-group">
+                    <label for="lead-size">Min Size</label>
+                    <select id="lead-size">
+                        <option value="0">Any Size</option>
+                        <option value="1000000">Above $1M</option>
+                        <option value="5000000" selected>Above $5M</option>
+                        <option value="10000000">Above $10M</option>
+                        <option value="25000000">Above $25M</option>
+                    </select>
+                </div>
+                <div class="controller-group">
+                    <label for="lead-days">Range</label>
+                    <select id="lead-days">
+                        <option value="7">Last 7 Days</option>
+                        <option value="30" selected>Last 30 Days</option>
+                        <option value="90">Last 90 Days</option>
+                        <option value="180">Last 180 Days</option>
+                    </select>
+                </div>
+                <button class="btn" id="btn-run" onclick="triggerPipeline()">
+                    <span id="run-text">Run Pipeline</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Stats Grid -->
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <span class="metric-title">Total Leads Found</span>
+                <span class="metric-value" id="stat-total">-</span>
+                <span class="metric-desc">Curated in master leadsheet</span>
+            </div>
+            <div class="metric-card m-first">
+                <span class="metric-title">Original Filings</span>
+                <span class="metric-value" id="stat-first">-</span>
+                <span class="metric-desc">New filings (not amendments)</span>
+            </div>
+            <div class="metric-card m-redesign">
+                <span class="metric-title">High VC Score</span>
+                <span class="metric-value" id="stat-emails">-</span>
+                <span class="metric-desc">Leads with score 7+</span>
+            </div>
+            <div class="metric-card m-noweb">
+                <span class="metric-title">Website Discovered</span>
+                <span class="metric-value" id="stat-noweb">-</span>
+                <span class="metric-desc">Leads with website domain</span>
+            </div>
+            <div class="metric-card m-fund">
+                <span class="metric-title">US-Based Firms</span>
+                <span class="metric-value" id="stat-us-based">-</span>
+                <span class="metric-desc">Operating in the United States</span>
+            </div>
+        </div>
+
+        <!-- Main Workspace split -->
+        <div class="workspace">
+            <!-- Left Panel: Table -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">Scouted VC & PE Firm Leads</h2>
+                    <a href="/api/leads" download="ALL_VC_LEADS.csv" class="btn-action" style="padding: 0.4rem 0.8rem; border-radius: 8px;">
+                        📥 Download Master CSV
+                    </a>
+                </div>
+
+                <!-- Filters & Search -->
+                <div class="search-filter-bar">
+                    <div class="search-wrapper">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" id="search-input" class="search-input" placeholder="Search firm, contact, email..." oninput="filterData()">
+                    </div>
+                    <div class="filter-tags">
+                        <button class="filter-tag active" onclick="setFilerFilter('all', this)">All Filers</button>
+                        <button class="filter-tag" onclick="setFilerFilter('first_filer', this)">🔥 Original</button>
+                        <button class="filter-tag" onclick="setFilerFilter('new_filer', this)">⭐ Amendments</button>
+                        <button class="filter-tag" onclick="setWebFilter('all', this)">All Domains</button>
+                        <button class="filter-tag" onclick="setWebFilter('has_site', this)">🌐 Has Website</button>
+                        <button class="filter-tag" onclick="setWebFilter('no_site', this)">❌ No Website</button>
+                    </div>
+                </div>
+
+                <!-- Table -->
+                <div class="table-container">
+                    <table id="leads-table">
+                        <thead>
+                            <tr>
+                                <th onclick="sortLeads('firm_name')">Firm Name</th>
+                                <th onclick="sortLeads('vc_score')">VC Score</th>
+                                <th onclick="sortLeads('fund_stage')">Stage</th>
+                                <th onclick="sortLeads('filer_status')">Filing Type</th>
+                                <th onclick="sortLeads('city')">Location</th>
+                                <th onclick="sortLeads('domain')">Website</th>
+                                <th onclick="sortLeads('filing_date')">Filing Date</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-body">
+                            <tr>
+                                <td colspan="7" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                                    Loading scouted leads...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Right Sidebar: Details & Logger Console -->
+            <div class="right-sidebar">
+                <!-- Lead details panel (Drawer) -->
+                <div class="panel detail-pane" id="detail-panel">
+                    <div class="detail-header">
+                        <h3 class="detail-name" id="det-firm">Volo Ventures</h3>
+                        <p class="detail-subtitle" id="det-name">Volo Ventures Fund II, LP</p>
+                    </div>
+                    
+                    <div class="info-list">
+                        <div class="info-item">
+                            <span class="info-label">CIK (SEC ID)</span>
+                            <span class="info-value" id="det-crd">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Accession Number</span>
+                            <span class="info-value" id="det-sec-num">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Filing Date</span>
+                            <span class="info-value" id="det-filing-date">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Date of First Sale</span>
+                            <span class="info-value" id="det-first-sale">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Offering Size</span>
+                            <span class="info-value" id="det-fund-size">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Amount Sold</span>
+                            <span class="info-value" id="det-amount-sold">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Industry Group / Type</span>
+                            <span class="info-value" id="det-industry">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Related Persons & Roles</span>
+                            <span class="info-value" id="det-related-people" style="white-space: pre-line;">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Phone Number</span>
+                            <span class="info-value" id="det-phone">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Website Domain</span>
+                            <span class="info-value" id="det-domain">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Physical Address</span>
+                            <span class="info-value" id="det-address">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Likely VC Score</span>
+                            <span class="info-value" id="det-vc-score">-</span>
+                        </div>
+                    </div>
+
+                    <div class="action-grid">
+                        <button class="btn-action" onclick="copyEmailToClipboard()">
+                            Copy Email
+                        </button>
+                        <a href="#" target="_blank" class="btn-action" id="link-sec">
+                            View SEC IAPD Profile
+                        </a>
+                    </div>
+                </div>
+
+                <div class="panel" id="detail-placeholder">
+                    <div class="empty-placeholder">
+                        <div class="empty-icon">👤</div>
+                        <p>Select a lead from the table to view contact info, location details, and website builder platform.</p>
+                    </div>
+                </div>
+
+                <!-- Live Pipeline Console Logs -->
+                <div class="console-panel">
+                    <div class="console-header">
+                        <span>Pipeline Runner Live Console</span>
+                        <div style="display: flex; align-items: center; gap: 0.4rem;">
+                            <div class="pulse-dot inactive" id="console-status-dot"></div>
+                            <span id="console-status-text">Idle</span>
+                        </div>
+                    </div>
+                    <div class="console-output" id="console-log">Pipeline logs will show up here...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allLeads = [];
+        let filteredLeads = [];
+        let selectedLeadCrd = null;
+        
+        let filerFilter = 'all';
+        let webFilter = 'all';
+        let sortKey = 'filing_date';
+        let sortAsc = false;
+
+        // Init
+        document.addEventListener("DOMContentLoaded", () => {
+            fetchStats();
+            fetchLeads();
+            checkRunnerStatus();
+        });
+
+        // 1. Fetch Stats & Leads
+        async function fetchStats() {
+            try {
+                const r = await fetch('/api/stats?_t=' + Date.now());
+                const stats = await r.json();
+                document.getElementById('stat-total').textContent = stats.total_leads;
+                document.getElementById('stat-first').textContent = stats.first_time_filers;
+                document.getElementById('stat-emails').textContent = stats.emails_found;
+                document.getElementById('stat-noweb').textContent = stats.no_website;
+                document.getElementById('stat-us-based').textContent = stats.us_based_firms;
+            } catch (e) {
+                console.error("Error fetching stats:", e);
+            }
+        }
+
+        async function fetchLeads() {
+            try {
+                const r = await fetch('/api/leads?_t=' + Date.now());
+                allLeads = await r.json();
+                filterData();
+            } catch (e) {
+                console.error("Error fetching leads:", e);
+            }
+        }
+
+        // 2. Sorting & Filtering
+        function setFilerFilter(val, el) {
+            document.querySelectorAll('.filter-tag').forEach(t => {
+                if (t.textContent.includes('First') || t.textContent.includes('New') || t.textContent.includes('All Filers')) {
+                    t.classList.remove('active');
+                }
+            });
+            el.classList.add('active');
+            filerFilter = val;
+            filterData();
+        }
+
+        function setWebFilter(val, el) {
+            document.querySelectorAll('.filter-tag').forEach(t => {
+                if (t.textContent.includes('No Website') || t.textContent.includes('Parked') || t.textContent.includes('All Domains')) {
+                    t.classList.remove('active');
+                }
+            });
+            el.classList.add('active');
+            webFilter = val;
+            filterData();
+        }
+
+        function filterData() {
+            const query = document.getElementById('search-input').value.toLowerCase().strip();
+            
+            filteredLeads = allLeads.filter(lead => {
+                // Search query matching
+                const matchesSearch = 
+                    lead.firm_name.toLowerCase().includes(query) ||
+                    lead.name.toLowerCase().includes(query) ||
+                    lead.contact_name.toLowerCase().includes(query) ||
+                    lead.domain.toLowerCase().includes(query);
+
+                // Filer filter matching
+                let matchesFiler = true;
+                if (filerFilter !== 'all') {
+                    matchesFiler = lead.filer_status === filerFilter;
+                }
+
+                // Domain filter matching
+                let matchesWeb = true;
+                if (webFilter === 'no_site') {
+                    matchesWeb = !lead.domain;
+                } else if (webFilter === 'has_site') {
+                    matchesWeb = !!lead.domain;
+                }
+
+                return matchesSearch && matchesFiler && matchesWeb;
+            });
+
+            sortData();
+            renderTable();
+        }
+
+        function sortLeads(key) {
+            if (sortKey === key) {
+                sortAsc = !sortAsc;
+            } else {
+                sortKey = key;
+                sortAsc = true;
+            }
+            sortData();
+            renderTable();
+        }
+
+        function sortData() {
+            filteredLeads.sort((a, b) => {
+                let valA = a[sortKey];
+                let valB = b[sortKey];
+
+                // Parse numbers for score and filings
+                if (sortKey === 'site_score' || sortKey === 'vc_score' || sortKey === 'total_filings') {
+                    valA = parseInt(valA) || 0;
+                    valB = parseInt(valB) || 0;
+                }
+
+                if (valA < valB) return sortAsc ? -1 : 1;
+                if (valA > valB) return sortAsc ? 1 : -1;
+                return 0;
+            });
+        }
+
+        // 3. Renderer Table
+        function renderTable() {
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = '';
+
+            if (filteredLeads.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 3rem; color: var(--text-muted);">No leads found matching filters.</td></tr>`;
+                return;
+            }
+
+            filteredLeads.forEach(lead => {
+                const tr = document.createElement('tr');
+                if (lead.crd === selectedLeadCrd) {
+                    tr.classList.add('selected');
+                }
+
+                // Filer type badges
+                let filerBadge = '';
+                if (lead.filer_status === 'first_filer') {
+                    filerBadge = `<span class="badge badge-first">Original</span>`;
+                } else if (lead.filer_status === 'new_filer') {
+                    filerBadge = `<span class="badge badge-new">Amendment</span>`;
+                } else {
+                    filerBadge = `<span class="badge badge-estab">${lead.filer_status || 'Established'}</span>`;
+                }
+
+                // VC Score badges
+                const score = parseInt(lead.vc_score || lead.site_score) || 0;
+                let scoreClass = 'score-low';
+                if (score >= 7) scoreClass = 'score-high';
+                else if (score >= 4) scoreClass = 'score-mid';
+                const scoreBadge = `<div class="score-circle ${scoreClass}">${score}</div>`;
+
+                const webDisplay = lead.domain 
+                    ? `<span class="domain-tag">🌐 ${lead.domain}</span>` 
+                    : `<span class="domain-tag" style="color: var(--accent-red);">❌ No Site</span>`;
+
+                tr.innerHTML = `
+                    <td style="font-weight: 600;">${lead.firm_name}</td>
+                    <td>${scoreBadge}</td>
+                    <td>${lead.fund_stage}</td>
+                    <td>${filerBadge}</td>
+                    <td style="font-weight: 500;">${(lead.city && lead.state) ? `${lead.city}, ${lead.state}` : (lead.city || lead.state || lead.country || '-')}</td>
+                    <td>${webDisplay}</td>
+                    <td>${lead.filing_date}</td>
+                `;
+
+                tr.onclick = () => selectLead(lead, tr);
+                tbody.appendChild(tr);
+            });
+        }
+
+        // 4. Select Lead & Populate Details Panel
+        function selectLead(lead, rowEl) {
+            document.querySelectorAll('tr').forEach(r => r.classList.remove('selected'));
+            rowEl.classList.add('selected');
+            selectedLeadCrd = lead.crd;
+
+            document.getElementById('detail-placeholder').style.display = 'none';
+            const detailPane = document.getElementById('detail-panel');
+            detailPane.classList.add('active');
+
+            // Populate fields
+            document.getElementById('det-firm').textContent = lead.firm_name;
+            document.getElementById('det-name').textContent = lead.name;
+            document.getElementById('det-crd').textContent = lead.crd || 'N/A';
+            document.getElementById('det-sec-num').textContent = lead.sec_number || 'N/A';
+            document.getElementById('det-filing-date').textContent = lead.filing_date || 'N/A';
+            document.getElementById('det-first-sale').textContent = lead.date_of_first_sale || 'Yet to Occur';
+            document.getElementById('det-fund-size').textContent = lead.fund_size || 'N/A';
+            document.getElementById('det-amount-sold').textContent = lead.amount_sold || 'N/A';
+            document.getElementById('det-industry').textContent = lead.issues || 'N/A';
+            
+            const contacts = lead.all_contacts ? lead.all_contacts.replace(/; /g, '\n') : 'N/A';
+            document.getElementById('det-related-people').textContent = contacts;
+            
+            document.getElementById('det-phone').textContent = lead.phone || 'N/A';
+            document.getElementById('det-domain').textContent = lead.domain || 'N/A';
+            document.getElementById('det-address').textContent = lead.address || 'N/A';
+
+            // Score badge in details
+            const score = parseInt(lead.vc_score || lead.site_score) || 0;
+            let scoreClass = 'score-low';
+            if (score >= 7) scoreClass = 'score-high';
+            else if (score >= 4) scoreClass = 'score-mid';
+            document.getElementById('det-vc-score').innerHTML = `<span class="badge ${score >= 7 ? 'badge-first' : (score >= 4 ? 'badge-new' : 'badge-estab')}" style="padding: 0.4rem 0.8rem; font-size: 0.9rem;">Score: ${score}</span>`;
+
+            // SEC Profile URL
+            const secLink = document.getElementById('link-sec');
+            secLink.href = lead.filing_url || '#';
+        }
+
+        // Helper String extension
+        String.prototype.strip = function() {
+            return this.replace(/^\s+|\s+$/g, '');
+        };
+
+        function copyEmailToClipboard() {
+            const email = document.getElementById('det-email').textContent;
+            if (email && email !== 'N/A') {
+                navigator.clipboard.writeText(email);
+                alert('Copied email to clipboard!');
+            }
+        }
+
+        // 5. Trigger Pipeline & Read Logs
+        let logInterval = null;
+
+        async function triggerPipeline() {
+            const type = document.getElementById('lead-type').value;
+            const days = document.getElementById('lead-days').value;
+            const min_size = document.getElementById('lead-size').value;
+            const btn = document.getElementById('btn-run');
+            const runText = document.getElementById('run-text');
+
+            btn.disabled = true;
+            runText.textContent = "Running...";
+
+            try {
+                const r = await fetch('/api/run', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ type, days, min_size })
+                });
+                const res = await r.json();
+                
+                if (res.status === 'success') {
+                    // Set logging status active
+                    document.getElementById('console-status-dot').className = 'pulse-dot';
+                    document.getElementById('console-status-text').textContent = 'Scouting...';
+                    
+                    // Clear previous logs in UI
+                    document.getElementById('console-log').textContent = '';
+                    
+                    // Start polling logs
+                    if (logInterval) clearInterval(logInterval);
+                    logInterval = setInterval(fetchLogs, 1500);
+                } else {
+                    alert('Error starting pipeline: ' + res.message);
+                    btn.disabled = false;
+                    runText.textContent = "Run Pipeline";
+                }
+            } catch (e) {
+                console.error("Error launching pipeline:", e);
+                btn.disabled = false;
+                runText.textContent = "Run Pipeline";
+            }
+        }
+
+        async function fetchLogs() {
+            try {
+                const r = await fetch('/api/logs?_t=' + Date.now());
+                const data = await r.json();
+                const consoleLog = document.getElementById('console-log');
+                
+                consoleLog.textContent = data.logs;
+                consoleLog.scrollTop = consoleLog.scrollHeight; // Auto scroll
+
+                if (!data.running) {
+                    clearInterval(logInterval);
+                    document.getElementById('console-status-dot').className = 'pulse-dot inactive';
+                    document.getElementById('console-status-text').textContent = 'Idle';
+                    
+                    // Re-fetch
+                    document.getElementById('btn-run').disabled = false;
+                    document.getElementById('run-text').textContent = "Run Pipeline";
+                    
+                    fetchStats();
+                    fetchLeads();
+                }
+            } catch (e) {
+                console.error("Error reading live logs:", e);
+            }
+        }
+
+        async function checkRunnerStatus() {
+            try {
+                const r = await fetch('/api/status?_t=' + Date.now());
+                const status = await r.json();
+                
+                if (status.running) {
+                    document.getElementById('btn-run').disabled = true;
+                    document.getElementById('run-text').textContent = "Running...";
+                    document.getElementById('console-status-dot').className = 'pulse-dot';
+                    document.getElementById('console-status-text').textContent = 'Scouting...';
+                    
+                    // Start polling
+                    logInterval = setInterval(fetchLogs, 1500);
+                }
+            } catch (e) {
+                console.error("Error checking status:", e);
+            }
+        }
+    </script>
+</body>
+</html>

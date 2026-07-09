@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.DS_Store
+*.log
+*backup.csv
+vc_best_leads.csv
