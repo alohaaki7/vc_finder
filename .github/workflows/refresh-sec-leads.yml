@@ -15,17 +15,11 @@ on:
         type: choice
         options:
           - vc
-          - fund2
           - pe
       days:
         description: Number of days to search
         required: true
         default: "30"
-        type: string
-      min_size:
-        description: Minimum offering amount in USD
-        required: true
-        default: "0"
         type: string
   schedule:
     - cron: "17 12 * * *"
@@ -44,10 +38,10 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
@@ -59,12 +53,10 @@ jobs:
         env:
           LEAD_TYPE: ${{ inputs.lead_type || 'vc' }}
           DAYS: ${{ inputs.days || '30' }}
-          MIN_SIZE: ${{ inputs.min_size || '0' }}
         run: |
           python pipeline.py \
             --type "$LEAD_TYPE" \
             --days "$DAYS" \
-            --min-size "$MIN_SIZE" \
             --output ALL_VC_LEADS.csv
 
       - name: Commit refreshed CSV
