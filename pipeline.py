@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Unified VC/PE Lead Generation Pipeline (IAPD Edition)
-Crawls the SEC Investment Adviser Public Disclosure (IAPD) database for:
-- Active Exempt Reporting Advisers (ERAs) with '802-' registration prefix
-- Filters out operational startups
-- Discovers website domains via DuckDuckGo search
-- Scans website quality and detects platform (Webflow, Wix, Squarespace, etc.)
-- Scrapes contact details and WHOIS emails
+Unified VC/PE Lead Generation Pipeline
+Crawls SEC EDGAR Form D filings for:
+- Fresh original fund filings
+- Fund I and Fund II signals
+- recent or not-yet-occurred first-sale dates
+- recently formed issuers
+- Venture Capital Fund metadata
 """
 
 import os
@@ -43,9 +43,6 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Accept": "application/json, text/html, */*"
 }
-
-IAPD_URL = "https://api.adviserinfo.sec.gov/search/firm"
-
 
 def requests_get(url, params=None, headers=None, timeout=10):
     """Request helper with default headers and simple retries."""
@@ -286,13 +283,15 @@ def parse_form_d_xml(xml_text):
         person_blocks = re.findall(r"<relatedPersonInfo>(.*?)</relatedPersonInfo>", xml_text, re.DOTALL)
         for p_block in person_blocks:
             first_match = re.search(r"<firstName>([^<]+)</firstName>", p_block)
+            middle_match = re.search(r"<middleName>([^<]+)</middleName>", p_block)
             last_match = re.search(r"<lastName>([^<]+)</lastName>", p_block)
             rel_matches = re.findall(r"<relationship>([^<]+)</relationship>", p_block)
             
             if first_match and last_match:
                 first = first_match.group(1).strip()
+                middle = middle_match.group(1).strip() if middle_match else ""
                 last = last_match.group(1).strip()
-                name = f"{first} {last}"
+                name = " ".join(part for part in [first, middle, last] if part)
                 if first == "-":
                     name = last
                 role = ", ".join(rel_matches) if rel_matches else "Related Person"
@@ -337,6 +336,639 @@ def check_related_people_roles(related_people):
         if any(k in p_low for k in keywords):
             return True
     return False
+
+
+HISTORY_START_DATE = "2001-01-01"
+FUND_VEHICLE_PATTERN = re.compile(
+    r"\b(a\s+series\s+of|series\s+of|special\s+purpose\s+vehicle|spv|syndicate|co[-\s]?invest(?:ment)?\s+vehicle)\b",
+    re.IGNORECASE
+)
+ENTITY_IDENTITY_PATTERN = re.compile(
+    r"\b(llc|l\.l\.c\.?|lp|l\.p\.?|ltd|inc|corp|company|management|manager|"
+    r"advisers?|advisors?|partners?|capital|ventures?|fund|gp|group|holdings?)\b",
+    re.IGNORECASE
+)
+MANAGER_STOP_WORDS = {
+    "a", "adviser", "advisers", "advisor", "advisors", "and", "capital",
+    "co", "company", "corp", "corporation", "fund", "funds", "general",
+    "gp", "group", "holding", "holdings", "i", "ii", "iii", "iv", "inc",
+    "investment", "investments", "limited", "llc", "lp", "ltd", "management",
+    "manager", "managers", "member", "one", "partner", "partners", "the",
+    "two", "venture", "ventures"
+}
+
+
+def clean_firm_name(firm_name):
+    """Remove fund numbering and legal suffixes from an issuer name."""
+    clean_name = str(firm_name or "")
+    clean_name = re.sub(
+        r",?\s*fund\s*(I+|[0-9]+|one|two).*$",
+        "",
+        clean_name,
+        flags=re.IGNORECASE
+    )
+    clean_name = re.sub(r",?\s*L\.?P\.?\s*$", "", clean_name, flags=re.IGNORECASE)
+    clean_name = re.sub(r",?\s*LLC\s*$", "", clean_name, flags=re.IGNORECASE)
+    clean_name = re.sub(r",?\s*Inc\.?\s*$", "", clean_name, flags=re.IGNORECASE)
+    return clean_name.strip(" ,\"")
+
+
+def extract_related_name(value):
+    """Return the name portion of a stored `Name (Role)` related-person value."""
+    name = re.sub(r"\s+\([^()]*\)\s*$", "", str(value or "")).strip()
+    name = re.sub(r"^(?:n/?a|not\s+applicable)\s+", "", name, flags=re.IGNORECASE)
+    name = re.sub(r"\s+(?:n/?a|not\s+applicable)$", "", name, flags=re.IGNORECASE)
+    return name.strip(" ,-")
+
+
+def normalize_identity(value):
+    text = str(value or "").lower().replace("&", " and ")
+    text = re.sub(r"[^a-z0-9]+", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def normalize_phone(value):
+    digits = re.sub(r"\D", "", str(value or ""))
+    return digits[-10:] if len(digits) >= 10 else digits
+
+
+def manager_brand_tokens(value):
+    return [
+        token for token in normalize_identity(value).split()
+        if token not in MANAGER_STOP_WORDS and not re.fullmatch(r"[0-9]+", token)
+    ]
+
+
+def is_entity_identity(value):
+    return bool(ENTITY_IDENTITY_PATTERN.search(str(value or "")))
+
+
+def is_useful_manager_name(value):
+    normalized = normalize_identity(value)
+    if len(normalized) < 4 or normalized in {"n a", "na", "unknown", "fund gp"}:
+        return False
+    brand_tokens = manager_brand_tokens(value)
+    if brand_tokens:
+        return any(len(token) >= 3 for token in brand_tokens)
+    return bool(re.search(r"\d{3,}", normalized))
+
+
+def canonical_person_name(value):
+    if is_entity_identity(value):
+        return ""
+    tokens = normalize_identity(value).split()
+    if len(tokens) < 2:
+        return ""
+    return f"{tokens[0]} {tokens[-1]}"
+
+
+def names_share_manager_identity(current_name, prior_name):
+    """Conservatively compare manager/issuer names after structural words are removed."""
+    current = normalize_identity(current_name)
+    prior = normalize_identity(prior_name)
+    if not current or not prior:
+        return False
+    if len(current) >= 5 and (current in prior or prior in current):
+        return True
+
+    current_tokens = set(manager_brand_tokens(current_name))
+    prior_tokens = set(manager_brand_tokens(prior_name))
+    shared = current_tokens & prior_tokens
+    if len(shared) >= 2:
+        return True
+    if len(shared) == 1:
+        token = next(iter(shared))
+        return len(token) >= 6 and (current_tokens <= prior_tokens or prior_tokens <= current_tokens)
+    return False
+
+
+def build_manager_search_identities(firm_name, clean_name, xml_info):
+    """Build a small, ordered set of strong-to-weak identities for SEC history search."""
+    identities = []
+    seen = set()
+
+    def add(kind, value):
+        value = str(value or "").strip()
+        key = (kind, normalize_identity(value))
+        if not value or not key[1] or key in seen:
+            return
+        seen.add(key)
+        identities.append({"kind": kind, "value": value})
+
+    if is_useful_manager_name(clean_name):
+        add("manager_name", clean_name)
+
+    series_match = re.search(
+        r"(?:a\s+)?series\s+of\s+(.+?)(?:,?\s+(?:l\.?p\.?|llc)\b|$)",
+        str(firm_name or ""),
+        re.IGNORECASE
+    )
+    if series_match and is_useful_manager_name(series_match.group(1)):
+        add("manager_entity", series_match.group(1))
+
+    entity_names = []
+    person_names = []
+    for related in xml_info.get("related_people", []):
+        name = extract_related_name(related)
+        if not is_useful_manager_name(name):
+            continue
+        if is_entity_identity(name):
+            entity_names.append(name)
+        elif canonical_person_name(name):
+            person_names.append(name)
+
+    for name in entity_names[:3]:
+        add("manager_entity", name)
+    for name in person_names[:2]:
+        add("person", name)
+
+    phone = str(xml_info.get("phone", "") or "").strip()
+    if len(normalize_phone(phone)) >= 10:
+        add("phone", phone)
+
+    street = str(xml_info.get("street", "") or "").strip()
+    zip_code = str(xml_info.get("zip", "") or "").strip()
+    if street and zip_code:
+        add("address", f"{street} {zip_code}")
+
+    return identities[:8]
+
+
+def search_prior_form_d_filings(query, before_date, logger=print):
+    """Search full-text EDGAR for Form D filings older than a candidate filing."""
+    filing_date = parse_sec_date(before_date)
+    if not filing_date:
+        return [], False
+
+    end_date = (filing_date - timedelta(days=1)).strftime("%Y-%m-%d")
+    if end_date < HISTORY_START_DATE:
+        return [], True
+
+    safe_query = re.sub(r"[\"\r\n]+", " ", str(query or "")).strip()
+    if not safe_query:
+        return [], True
+
+    params = {
+        "q": f'"{safe_query}"',
+        "dateRange": "custom",
+        "startdt": HISTORY_START_DATE,
+        "enddt": end_date,
+        "forms": "D",
+        "from": 0,
+        "size": 100,
+    }
+    headers = {
+        "User-Agent": "LeadFinderTeam contact@emergingvcscout.com",
+        "Accept": "application/json"
+    }
+
+    for attempt in range(3):
+        try:
+            time.sleep(0.2)
+            response = requests.get(
+                "https://efts.sec.gov/LATEST/search-index",
+                params=params,
+                headers=headers,
+                timeout=20
+            )
+            if response.status_code == 200:
+                return response.json().get("hits", {}).get("hits", []), True
+        except Exception:
+            pass
+        if attempt < 2:
+            time.sleep(1.0)
+
+    logger(f"    Manager history search failed for: {safe_query}")
+    return [], False
+
+
+def history_hit_to_filing(hit):
+    src = hit.get("_source", {})
+    hit_id = hit.get("_id", "")
+    if ":" in hit_id:
+        adsh_from_id, xml_filename = hit_id.split(":", 1)
+    else:
+        adsh_from_id, xml_filename = "", "primary_doc.xml"
+    ciks = src.get("ciks", [])
+    display_names = src.get("display_names", [])
+    return {
+        "name": re.sub(
+            r"\s*\(CIK\s*\d+\)\s*$",
+            "",
+            display_names[0] if display_names else "",
+            flags=re.IGNORECASE
+        ).strip(),
+        "cik": ciks[0] if ciks else "",
+        "adsh": src.get("adsh", "") or adsh_from_id,
+        "xml_filename": xml_filename or "primary_doc.xml",
+        "filing_date": src.get("file_date", ""),
+        "form_type": src.get("form", src.get("file_type", "")),
+    }
+
+
+def is_historical_fund(xml_info):
+    industry = str(xml_info.get("industry_group", "")).lower()
+    fund_type = str(xml_info.get("investment_fund_type", "")).lower()
+    return "pooled investment fund" in industry or "fund" in fund_type
+
+
+def history_identity_matches(identity, prior_filing, prior_info):
+    kind = identity["kind"]
+    value = identity["value"]
+    prior_related = [extract_related_name(p) for p in prior_info.get("related_people", [])]
+
+    if kind in {"manager_name", "manager_entity"}:
+        prior_names = [prior_filing.get("name", "")] + prior_related
+        return any(names_share_manager_identity(value, name) for name in prior_names)
+    if kind == "person":
+        person = canonical_person_name(value)
+        return bool(person) and any(canonical_person_name(name) == person for name in prior_related)
+    if kind == "phone":
+        return normalize_phone(value) == normalize_phone(prior_info.get("phone", ""))
+    if kind == "address":
+        current = normalize_identity(value)
+        prior = normalize_identity(f"{prior_info.get('street', '')} {prior_info.get('zip', '')}")
+        return bool(current and prior and current == prior)
+    return False
+
+
+def history_filing_url(filing):
+    try:
+        cik = str(int(filing["cik"]))
+    except (ValueError, TypeError, KeyError):
+        return ""
+    adsh = str(filing.get("adsh", ""))
+    if not adsh:
+        return ""
+    return f"https://www.sec.gov/Archives/edgar/data/{cik}/{adsh.replace('-', '')}/{adsh}-index.htm"
+
+
+def find_manager_history(filing, clean_name, xml_info, cache=None, logger=print):
+    """Find strong or supporting evidence that a manager raised an older fund."""
+    cache = cache if cache is not None else {}
+    identities = build_manager_search_identities(filing.get("name", ""), clean_name, xml_info)
+    result = {
+        "checked": False,
+        "found": False,
+        "weak_match": False,
+        "count": 0,
+        "queries_checked": 0,
+        "queries_total": len(identities),
+        "reason": "No usable manager identities were available for history search.",
+        "first_filing_date": "",
+        "filing_name": "",
+        "filing_url": "",
+        "matched_identity": "",
+    }
+    if not identities:
+        return result
+
+    strong_matches = []
+    weak_matches = []
+    all_queries_completed = True
+
+    for identity in identities:
+        cache_key = (
+            identity["kind"],
+            normalize_identity(identity["value"]),
+            str(filing.get("filing_date", ""))[:10]
+        )
+        if cache_key in cache:
+            hits, search_ok = cache[cache_key]
+        else:
+            hits, search_ok = search_prior_form_d_filings(
+                identity["value"],
+                filing.get("filing_date", ""),
+                logger=logger
+            )
+            cache[cache_key] = (hits, search_ok)
+
+        if not search_ok:
+            all_queries_completed = False
+            continue
+        result["queries_checked"] += 1
+
+        historical_filings = [history_hit_to_filing(hit) for hit in hits]
+        historical_filings = [
+            item for item in historical_filings
+            if item.get("adsh") and item.get("adsh") != filing.get("adsh")
+        ]
+        historical_filings.sort(
+            key=lambda item: (
+                0 if item.get("form_type") == "D" else 1,
+                item.get("filing_date", "")
+            )
+        )
+
+        unique_filings = []
+        seen_ciks = set()
+        for prior in historical_filings:
+            history_key = prior.get("cik") or prior.get("adsh")
+            if history_key in seen_ciks:
+                continue
+            seen_ciks.add(history_key)
+            unique_filings.append(prior)
+            if len(unique_filings) >= 4:
+                break
+
+        for prior in unique_filings:
+            prior_xml = fetch_form_d_xml(
+                prior.get("cik", ""),
+                prior.get("adsh", ""),
+                prior.get("xml_filename", "primary_doc.xml"),
+                logger=logger
+            )
+            if not prior_xml:
+                all_queries_completed = False
+                continue
+            prior_info = parse_form_d_xml(prior_xml)
+            if not is_historical_fund(prior_info):
+                continue
+            if not history_identity_matches(identity, prior, prior_info):
+                continue
+
+            match = {
+                "filing": prior,
+                "identity": identity,
+            }
+            if identity["kind"] in {"manager_name", "manager_entity", "person"}:
+                strong_matches.append(match)
+            else:
+                weak_matches.append(match)
+
+        if strong_matches:
+            break
+
+    matches = strong_matches or weak_matches
+    if matches:
+        matches.sort(key=lambda match: match["filing"].get("filing_date", "9999-99-99"))
+        first = matches[0]
+        unique_history = {
+            match["filing"].get("cik") or match["filing"].get("adsh")
+            for match in matches
+        }
+        prior = first["filing"]
+        identity = first["identity"]
+        result.update({
+            "checked": all_queries_completed or bool(strong_matches),
+            "found": bool(strong_matches),
+            "weak_match": not bool(strong_matches),
+            "count": len(unique_history),
+            "first_filing_date": prior.get("filing_date", ""),
+            "filing_name": prior.get("name", ""),
+            "filing_url": history_filing_url(prior),
+            "matched_identity": identity["value"],
+        })
+        if strong_matches:
+            result["reason"] = (
+                f"Prior fund filing matched {identity['kind'].replace('_', ' ')} "
+                f"'{identity['value']}': {prior.get('name', 'older fund')} "
+                f"({prior.get('filing_date', 'date unavailable')})."
+            )
+        else:
+            result["reason"] = (
+                f"Only a shared {identity['kind']} matched an older fund filing; "
+                "manager identity still needs review."
+            )
+        return result
+
+    result["checked"] = all_queries_completed and result["queries_checked"] == len(identities)
+    if result["checked"]:
+        result["reason"] = (
+            f"No earlier Form D fund filing matched {len(identities)} manager identities "
+            f"searched back to {HISTORY_START_DATE[:4]}."
+        )
+    else:
+        result["reason"] = "Manager history search was incomplete; keep this lead in review."
+    return result
+
+
+def assess_manager_novelty(filing, xml_info, fund_stage, history):
+    """Turn SEC history evidence into the product-facing manager verdict."""
+    firm_name = filing.get("name", "")
+    formed_recently = False
+    try:
+        formed_recently = int(xml_info.get("year_inc")) >= datetime.now().year - 1
+    except (TypeError, ValueError):
+        pass
+
+    if history.get("found"):
+        code = "existing_manager"
+        status = "Existing manager"
+        score = 5
+        confidence = "High"
+        reason = history["reason"]
+    elif fund_stage == "Fund II":
+        code = "existing_manager"
+        status = "Existing manager"
+        score = 10
+        confidence = "High" if history.get("checked") else "Medium"
+        reason = history["reason"] if history.get("weak_match") else (
+            "Fund II indicates a prior fund even when no matching older SEC filing is available."
+        )
+    elif FUND_VEHICLE_PATTERN.search(firm_name):
+        code = "needs_review"
+        status = "Needs review"
+        score = 25
+        confidence = "High"
+        reason = "Series/SPV structure is not treated as a standalone new VC firm."
+    elif not history.get("checked") or history.get("weak_match"):
+        code = "needs_review"
+        status = "Needs review"
+        score = 40
+        confidence = "Low"
+        reason = history["reason"]
+    elif fund_stage == "Fund I":
+        code = "likely_new"
+        status = "Likely new firm"
+        score = 95 if formed_recently else 85
+        confidence = "High" if formed_recently else "Medium"
+        reason = history["reason"]
+    elif formed_recently:
+        code = "likely_new"
+        status = "Likely new firm"
+        score = 75
+        confidence = "Medium"
+        reason = history["reason"]
+    else:
+        code = "needs_review"
+        status = "Needs review"
+        score = 50
+        confidence = "Low"
+        reason = "No prior manager match, but the filing lacks a strong Fund I or recent-formation signal."
+
+    return {
+        "manager_status_code": code,
+        "manager_status": status,
+        "manager_novelty_score": score,
+        "manager_confidence": confidence,
+        "manager_history_count": history.get("count", 0),
+        "manager_history_reason": reason,
+        "manager_first_filing_date": history.get("first_filing_date", ""),
+        "manager_history_name": history.get("filing_name", ""),
+        "manager_history_url": history.get("filing_url", ""),
+        "manager_matched_identity": history.get("matched_identity", ""),
+    }
+
+
+FUND_I_PATTERN = re.compile(r"\bfund\s*(i|1|one)\b", re.IGNORECASE)
+FUND_II_PATTERN = re.compile(r"\bfund\s*(ii|2|two)\b", re.IGNORECASE)
+FOLLOW_ON_FUND_PATTERN = re.compile(
+    r"\bfund\s*(iii|iv|v|vi|vii|viii|ix|x|3|4|5|6|7|8|9|10)\b",
+    re.IGNORECASE
+)
+
+
+def classify_fund_stage(firm_name):
+    """Classify the fund stage from the issuer/fund name."""
+    if FUND_II_PATTERN.search(firm_name):
+        return "Fund II"
+    if FUND_I_PATTERN.search(firm_name):
+        return "Fund I"
+    if FOLLOW_ON_FUND_PATTERN.search(firm_name):
+        return "Later Fund"
+    return "Emerging Fund"
+
+
+def parse_sec_date(value):
+    """Parse SEC YYYY-MM-DD strings. Returns None for missing/not-yet dates."""
+    if not value or str(value).lower().startswith("yet"):
+        return None
+    try:
+        return datetime.strptime(str(value)[:10], "%Y-%m-%d")
+    except Exception:
+        return None
+
+
+def is_recent_date(value, days):
+    """Return True when a date string is within the requested freshness window."""
+    parsed = parse_sec_date(value)
+    if not parsed:
+        return False
+    return parsed >= datetime.now() - timedelta(days=days)
+
+
+def is_not_yet_first_sale(value):
+    return str(value or "").strip().lower().startswith("yet")
+
+
+def amount_passes_minimum(amount, min_size):
+    """Respect the user's minimum size filter when the filing has a numeric amount."""
+    if not min_size:
+        return True
+    if isinstance(amount, (int, float)):
+        return amount >= min_size
+    return True
+
+
+def looks_like_vc_fund(firm_name, xml_info):
+    text = " ".join([
+        firm_name,
+        xml_info.get("industry_group", ""),
+        xml_info.get("investment_fund_type", "")
+    ]).lower()
+    return (
+        "venture capital fund" in text or
+        any(term in text for term in ["venture", "ventures", "seed fund", "vc fund"])
+    )
+
+
+def looks_like_pe_fund(firm_name, xml_info):
+    text = " ".join([
+        firm_name,
+        xml_info.get("industry_group", ""),
+        xml_info.get("investment_fund_type", "")
+    ]).lower()
+    return "private equity" in text or "buyout" in text or "growth equity" in text
+
+
+def calculate_freshness_score(f, xml_info, fund_stage, days):
+    """Score only novelty/newness signals, separate from VC fit."""
+    score = 0
+    reasons = []
+
+    if f["form_type"] == "D":
+        score += 4
+        reasons.append("original Form D")
+    else:
+        score -= 3
+        reasons.append("amendment")
+
+    filing_date = parse_sec_date(f.get("filing_date", ""))
+    if filing_date:
+        age_days = (datetime.now() - filing_date).days
+        if age_days <= 7:
+            score += 3
+            reasons.append("filed this week")
+        elif age_days <= 30:
+            score += 2
+            reasons.append("filed this month")
+        elif age_days <= days:
+            score += 1
+            reasons.append(f"filed within {days} days")
+
+    if is_not_yet_first_sale(xml_info["date_of_first_sale"]):
+        score += 4
+        reasons.append("first sale not yet occurred")
+    elif is_recent_date(xml_info["date_of_first_sale"], days):
+        score += 3
+        reasons.append("recent first sale")
+
+    try:
+        year_inc = int(xml_info["year_inc"])
+        current_year = datetime.now().year
+        if year_inc == current_year:
+            score += 2
+            reasons.append(f"issuer formed {year_inc}")
+        elif year_inc == current_year - 1:
+            score += 1
+            reasons.append(f"issuer formed {year_inc}")
+    except Exception:
+        pass
+
+    if fund_stage == "Fund I":
+        score += 4
+        reasons.append("Fund I")
+    elif fund_stage == "Fund II":
+        score += 2
+        reasons.append("Fund II")
+    elif fund_stage == "Later Fund":
+        score -= 5
+        reasons.append("later fund")
+
+    return score, "; ".join(reasons)
+
+
+def lead_matches_target(f, xml_info, fund_stage, lead_type, min_size, days):
+    """Keep only leads that are truly fresh fund/firm signals."""
+    if not amount_passes_minimum(xml_info["offering_amount"], min_size):
+        return False
+
+    is_original = f["form_type"] == "D"
+    has_fresh_sale = is_not_yet_first_sale(xml_info["date_of_first_sale"]) or is_recent_date(xml_info["date_of_first_sale"], days)
+    formed_recently = False
+    try:
+        formed_recently = int(xml_info["year_inc"]) >= datetime.now().year - 1
+    except Exception:
+        pass
+
+    # Newness gate: a lead should be an original filing with a current first-sale,
+    # recent issuer formation, or a clearly early fund stage.
+    if not is_original:
+        return False
+    if not (has_fresh_sale or formed_recently or fund_stage in ["Fund I", "Fund II"]):
+        return False
+    if fund_stage == "Later Fund":
+        return False
+
+    if lead_type == "fund2" and fund_stage != "Fund II":
+        return False
+    if lead_type in ["vc", "fund2"] and not looks_like_vc_fund(f["name"], xml_info):
+        return False
+    if lead_type == "pe" and not looks_like_pe_fund(f["name"], xml_info):
+        return False
+
+    return True
 
 
 def calculate_vc_score(f, xml_info, domain_found):
@@ -671,6 +1303,7 @@ def get_linkedin_urls(firm_name):
     return company_url, team_url# Lead Enricher and Execution Engine
 def run_pipeline(days=30, lead_type="vc", min_size=0, output_file="ALL_VC_LEADS.csv", logger=print):
     """Executes the lead finder pipeline using SEC EDGAR Form D search and scoring."""
+    run_started_at = datetime.now().isoformat(timespec="seconds")
     logger(f"🚀 Starting Form D Lead Pipeline | Days: {days} | Target: {lead_type.upper()}")
     
     # 1. Search EFTS index for Form D filings in the range
@@ -682,6 +1315,7 @@ def run_pipeline(days=30, lead_type="vc", min_size=0, output_file="ALL_VC_LEADS.
     logger(f"🔍 Found {len(candidates)} candidate filings. Fetching Form D details...")
     
     enriched_leads = []
+    history_cache = {}
     target_count = len(candidates)
     
     for done, c in enumerate(candidates, 1):
@@ -701,19 +1335,34 @@ def run_pipeline(days=30, lead_type="vc", min_size=0, output_file="ALL_VC_LEADS.
             xml_info = parse_form_d_xml(xml_text)
             
             # Format clean firm name
-            clean_name = firm_name
-            clean_name = re.sub(r",?\s*fund\s*(I+|[0-9]+|one|two).*$", "", clean_name, flags=re.IGNORECASE)
-            clean_name = re.sub(r",?\s*L\.?P\.?\s*$", "", clean_name, flags=re.IGNORECASE)
-            clean_name = re.sub(r",?\s*LLC\s*$", "", clean_name, flags=re.IGNORECASE)
-            clean_name = re.sub(r",?\s*Inc\.?\s*$", "", clean_name, flags=re.IGNORECASE)
-            clean_name = clean_name.strip(" ,\"")
+            clean_name = clean_firm_name(firm_name)
+
+            fund_stage = classify_fund_stage(firm_name)
+
+            if not lead_matches_target(c, xml_info, fund_stage, lead_type, min_size, days):
+                logger(f"    ↳ Skipped: not a fresh {lead_type.upper()} target.")
+                continue
+
+            history = find_manager_history(
+                c,
+                clean_name,
+                xml_info,
+                cache=history_cache,
+                logger=logger
+            )
+            manager_assessment = assess_manager_novelty(c, xml_info, fund_stage, history)
+            logger(
+                f"    ↳ Manager check: {manager_assessment['manager_status']} "
+                f"({manager_assessment['manager_confidence']} confidence)"
+            )
             
             # Resolve domain only for candidate leads to keep it fast
             domain = discover_domain(clean_name, logger=logger) or ""
             domain_found = bool(domain)
             
-            # Calculate VC score
-            score = calculate_vc_score(c, xml_info, domain_found)
+            # Calculate fit + freshness scores. Freshness is the primary product signal.
+            freshness_score, freshness_reason = calculate_freshness_score(c, xml_info, fund_stage, days)
+            score = calculate_vc_score(c, xml_info, domain_found) + freshness_score
             
             # Format amounts nicely
             offering_amt = xml_info["offering_amount"]
@@ -736,14 +1385,6 @@ def run_pipeline(days=30, lead_type="vc", min_size=0, output_file="ALL_VC_LEADS.
             else:
                 amt_sold_str = str(amt_sold)
                 
-            # Classify fund stage
-            if re.search(r"fund\s*(I|1|one)\b", firm_name, re.IGNORECASE):
-                fund_stage = "Fund I"
-            elif re.search(r"fund\s*(II|2|two)\b", firm_name, re.IGNORECASE):
-                fund_stage = "Fund II"
-            else:
-                fund_stage = "Emerging Fund"
-                
             # Parse contact name/title from related persons
             contact_name = "View Team on SEC/LinkedIn"
             contact_title = "General Partner"
@@ -754,13 +1395,15 @@ def run_pipeline(days=30, lead_type="vc", min_size=0, output_file="ALL_VC_LEADS.
                     contact_title = contact_title.rstrip(")")
                 else:
                     contact_name = first_person
-                    
+
             lead = {
                 "checked": "",
+                "signal_type": manager_assessment["manager_status"],
                 "firm_name": clean_name,
                 "name": firm_name,
                 "contact_name": contact_name,
                 "contact_title": contact_title,
+                **manager_assessment,
                 "phone": xml_info["phone"],
                 "primary_email": "",
                 "domain": domain,
@@ -768,12 +1411,15 @@ def run_pipeline(days=30, lead_type="vc", min_size=0, output_file="ALL_VC_LEADS.
                 "fund_size": off_amt_str,
                 "amount_sold": amt_sold_str,
                 "year_inc": xml_info["year_inc"],
+                "date_of_first_sale": xml_info["date_of_first_sale"],
                 "fund_stage": fund_stage,
                 "filer_status": "first_filer" if c["form_type"] == "D" else "new_filer",
                 "total_filings": "1",
                 "platform": "Has website" if domain_found else "No website",
                 "site_score": score,  # for dashboard backwards compatibility
                 "vc_score": score,
+                "freshness_score": freshness_score,
+                "freshness_reason": freshness_reason,
                 "issues": f"{xml_info['industry_group']} - {xml_info['investment_fund_type']}",
                 "linkedin_company": "",
                 "linkedin_person": "",
@@ -788,7 +1434,10 @@ def run_pipeline(days=30, lead_type="vc", min_size=0, output_file="ALL_VC_LEADS.
             }
             
             enriched_leads.append(lead)
-            logger(f"    → Success! Scored: {score} | Location: {lead['city']}, {lead['state']} | Site: {lead['domain'] or 'None'}")
+            logger(
+                f"    → Fresh signal! {manager_assessment['manager_status']} | "
+                f"Freshness: {freshness_score} | Location: {lead['city']}, {lead['state']}"
+            )
             
         except Exception as ex:
             logger(f"    ❌ Error processing lead: {ex}")
@@ -801,6 +1450,14 @@ def run_pipeline(days=30, lead_type="vc", min_size=0, output_file="ALL_VC_LEADS.
                 reader = csv.DictReader(f)
                 for row in reader:
                     if row.get("crd"): # CRD contains CIK here
+                        row["is_new_since_last_run"] = "no"
+                        row["first_seen_at"] = row.get("first_seen_at") or row.get("filing_date") or ""
+                        row["last_seen_at"] = row.get("last_seen_at") or row.get("filing_date") or ""
+                        row["manager_status_code"] = row.get("manager_status_code") or "not_checked"
+                        row["manager_status"] = row.get("manager_status") or "Not checked"
+                        row["manager_novelty_score"] = row.get("manager_novelty_score") or "0"
+                        row["manager_confidence"] = row.get("manager_confidence") or "Unknown"
+                        row["manager_history_reason"] = row.get("manager_history_reason") or "Run the pipeline again to check SEC manager history."
                         all_leads_dict[row["crd"]] = row
         except Exception:
             pass
@@ -809,25 +1466,65 @@ def run_pipeline(days=30, lead_type="vc", min_size=0, output_file="ALL_VC_LEADS.
     merged_count = 0
     for lead in enriched_leads:
         cik = lead["crd"]
-        if cik not in all_leads_dict:
+        existing = all_leads_dict.get(cik)
+
+        if not existing:
             merged_count += 1
+            lead["first_seen_at"] = run_started_at
+            lead["last_seen_at"] = run_started_at
+            lead["is_new_since_last_run"] = "yes"
+        else:
+            lead["checked"] = existing.get("checked", lead.get("checked", ""))
+            lead["first_seen_at"] = existing.get("first_seen_at") or existing.get("last_seen_at") or existing.get("filing_date") or run_started_at
+            lead["last_seen_at"] = run_started_at
+            lead["is_new_since_last_run"] = "no"
+
         all_leads_dict[cik] = lead
         
-    # Sort master list by vc_score descending (best leads first)
+    # Put validated likely-new managers first, then latest-run and freshness signals.
     final_list = list(all_leads_dict.values())
     def get_score_val(x):
         try:
             return int(x.get("vc_score") or x.get("site_score") or 0)
         except (ValueError, TypeError):
             return 0
-    final_list.sort(key=get_score_val, reverse=True)
+    def get_sort_val(x):
+        manager_priority = {
+            "likely_new": 3,
+            "needs_review": 2,
+            "not_checked": 1,
+            "existing_manager": 0,
+        }.get(str(x.get("manager_status_code", "")), 1)
+        is_new = 1 if str(x.get("is_new_since_last_run", "")).lower() == "yes" else 0
+        try:
+            manager_novelty = int(x.get("manager_novelty_score") or 0)
+        except (ValueError, TypeError):
+            manager_novelty = 0
+        try:
+            freshness = int(x.get("freshness_score") or 0)
+        except (ValueError, TypeError):
+            freshness = 0
+        return (
+            manager_priority,
+            is_new,
+            manager_novelty,
+            freshness,
+            get_score_val(x),
+            x.get("filing_date", "")
+        )
+    final_list.sort(key=get_sort_val, reverse=True)
     
     # Save CSV
     fieldnames = [
-        "checked", "firm_name", "name", "contact_name", "contact_title",
+        "checked", "signal_type", "firm_name", "name", "contact_name", "contact_title",
+        "is_new_since_last_run", "first_seen_at", "last_seen_at",
+        "manager_status_code", "manager_status", "manager_novelty_score", "manager_confidence",
+        "manager_history_count", "manager_history_reason", "manager_first_filing_date",
+        "manager_history_name", "manager_history_url", "manager_matched_identity",
         "phone", "primary_email", "domain", "address", "fund_size",
-        "amount_sold", "year_inc", "fund_stage", "filer_status",
-        "total_filings", "platform", "site_score", "vc_score", "issues",
+        "amount_sold", "year_inc", "date_of_first_sale", "fund_stage", "filer_status",
+        "total_filings", "platform", "site_score", "vc_score", "freshness_score",
+        "freshness_reason", "issues",
         "linkedin_company", "linkedin_person", "all_contacts",
         "filing_date", "crd", "sec_number", "filing_url", "city", "state", "country"
     ]
@@ -844,9 +1541,10 @@ def run_pipeline(days=30, lead_type="vc", min_size=0, output_file="ALL_VC_LEADS.
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="SEC EDGAR Form D VC Lead Pipeline")
-    parser.add_argument("--type", type=str, choices=["vc", "pe"], default="vc", help="Target firm type")
+    parser.add_argument("--type", type=str, choices=["vc", "pe", "fund2"], default="vc", help="Target firm type")
     parser.add_argument("--output", type=str, default="ALL_VC_LEADS.csv", help="Master output CSV file")
     parser.add_argument("--days", type=int, default=30, help="Days range")
+    parser.add_argument("--min-size", type=int, default=0, help="Minimum offering amount")
     args = parser.parse_args()
 
-    run_pipeline(days=args.days, lead_type=args.type, output_file=args.output)
+    run_pipeline(days=args.days, lead_type=args.type, min_size=args.min_size, output_file=args.output)

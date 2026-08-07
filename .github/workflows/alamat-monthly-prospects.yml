@@ -1,0 +1,95 @@
+name: Refresh Alamat Monthly Prospects
+
+on:
+  workflow_dispatch:
+    inputs:
+      days:
+        description: SEC discovery window in days
+        required: true
+        default: "90"
+        type: string
+  schedule:
+    - cron: "17 6 * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: alamat-monthly-prospects
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Validate SEC identity
+        env:
+          VC_FINDER_SEC_USER_AGENT: ${{ secrets.VC_FINDER_SEC_USER_AGENT }}
+        run: |
+          if [ -z "$VC_FINDER_SEC_USER_AGENT" ]; then
+            echo "Add the VC_FINDER_SEC_USER_AGENT repository secret using a monitored Alamat email."
+            exit 1
+          fi
+
+      - name: Build discovery and monthly queues
+        env:
+          VC_FINDER_SEC_USER_AGENT: ${{ secrets.VC_FINDER_SEC_USER_AGENT }}
+          DAYS: ${{ inputs.days || '90' }}
+        run: |
+          python pipeline.py \
+            --type vc \
+            --days "$DAYS" \
+            --output ALAMAT_90D_DISCOVERY.csv
+          python collect_launch_signals.py \
+            ALAMAT_PUBLIC_LAUNCH_SIGNALS.csv \
+            --days 730
+          python build_monthly_prospects.py \
+            ALAMAT_90D_DISCOVERY.csv \
+            ALAMAT_MONTHLY_PROSPECTS_100.csv \
+            --external ALAMAT_PUBLIC_LAUNCH_SIGNALS.csv \
+            --limit 100 \
+            --deep-limit 20 \
+            --month "$(date -u +%Y-%m)" \
+            --weekly-dir ALAMAT_WEEKLY_BATCHES
+          python build_daily_agent_queue.py \
+            ALAMAT_MONTHLY_PROSPECTS_100.csv \
+            ALAMAT_AGENT_QUEUE_TODAY.csv \
+            --ledger ALAMAT_AGENT_REVIEWS.csv \
+            --limit 5
+
+      - name: Upload working queues
+        uses: actions/upload-artifact@v4
+        with:
+          name: alamat-monthly-prospects
+          path: |
+            ALAMAT_MONTHLY_PROSPECTS_100.csv
+            ALAMAT_AGENT_QUEUE_TODAY.csv
+            ALAMAT_PUBLIC_LAUNCH_SIGNALS.csv
+            ALAMAT_WEEKLY_BATCHES/*.csv
+
+      - name: Commit refreshed queues
+        run: |
+          if [ -z "$(git status --porcelain -- ALAMAT_90D_DISCOVERY.csv ALAMAT_PUBLIC_LAUNCH_SIGNALS.csv ALAMAT_MONTHLY_PROSPECTS_100.csv ALAMAT_AGENT_QUEUE_TODAY.csv ALAMAT_WEEKLY_BATCHES)" ]; then
+            echo "No lead changes found."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ALAMAT_90D_DISCOVERY.csv ALAMAT_PUBLIC_LAUNCH_SIGNALS.csv ALAMAT_MONTHLY_PROSPECTS_100.csv ALAMAT_AGENT_QUEUE_TODAY.csv ALAMAT_WEEKLY_BATCHES
+          git commit -m "Refresh Alamat monthly prospect queue"
+          git push

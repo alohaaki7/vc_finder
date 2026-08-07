@@ -113,55 +113,43 @@ def get_stats():
     if not os.path.exists(LEADS_FILE):
         return jsonify({
             "total_leads": 0,
-            "first_time_filers": 0,
-            "emails_found": 0,
-            "no_website": 0,
-            "us_based_firms": 0
+            "new_since_last_run": 0,
+            "likely_new_firms": 0,
+            "existing_managers": 0,
+            "needs_review": 0
         })
 
     total = 0
-    first_time = 0
-    high_score = 0
-    has_web = 0
-    us_based = 0
+    new_since_last_run = 0
+    likely_new_firms = 0
+    existing_managers = 0
+    needs_review = 0
 
     try:
         with open(LEADS_FILE, "r", encoding="utf-8") as f:
             reader = csv.DictReader(f)
             for row in reader:
                 total += 1
-                if row.get("filer_status") == "first_filer":
-                    first_time += 1
+                if str(row.get("is_new_since_last_run", "")).lower() == "yes":
+                    new_since_last_run += 1
 
-                if row.get("domain"):
-                    has_web += 1
-
-                # Count high VC score (score >= 7)
-                try:
-                    score = int(row.get("vc_score", row.get("site_score", 0)))
-                except Exception:
-                    score = 0
-                if score >= 7:
-                    high_score += 1
-
-                # Count US-based firms
-                state = row.get("state", "").upper().strip()
-                country = row.get("country", "").lower().strip()
-                is_us = country in ["united states", "us", "usa", "u.s.", "u.s.a.", "united states of america"]
-                if not is_us and len(state) == 2 and state.isalpha():
-                    is_us = True
-                if is_us:
-                    us_based += 1
+                manager_status = row.get("manager_status_code", "not_checked")
+                if manager_status == "likely_new":
+                    likely_new_firms += 1
+                elif manager_status == "existing_manager":
+                    existing_managers += 1
+                else:
+                    needs_review += 1
 
     except Exception as e:
         return jsonify({"error": f"Error gathering stats: {e}"}), 500
 
     return jsonify({
         "total_leads": total,
-        "first_time_filers": first_time,
-        "emails_found": high_score,
-        "no_website": has_web,
-        "us_based_firms": us_based
+        "new_since_last_run": new_since_last_run,
+        "likely_new_firms": likely_new_firms,
+        "existing_managers": existing_managers,
+        "needs_review": needs_review
     })
 
 
