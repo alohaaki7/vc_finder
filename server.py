@@ -10,7 +10,7 @@ import csv
 import json
 import threading
 from flask import Flask, jsonify, request, send_from_directory, render_template_string
-from pipeline import run_pipeline
+from pipeline import clean_firm_name, run_pipeline
 
 app = Flask(__name__, static_folder="templates")
 
@@ -38,6 +38,18 @@ pipeline_status = {
 TEMPLATE_DIR = os.path.join(SCRIPT_DIR, "templates")
 if not os.path.exists(TEMPLATE_DIR):
     os.makedirs(TEMPLATE_DIR)
+
+
+def prepare_lead_for_display(row):
+    """Use a parent manager as the display label for legacy SEC series rows."""
+    display_row = dict(row)
+    issuer_name = str(display_row.get("name") or "")
+    if "series of" in issuer_name.casefold():
+        manager_name = clean_firm_name(issuer_name)
+        if manager_name:
+            display_row["sec_vehicle_name"] = display_row.get("firm_name") or issuer_name
+            display_row["firm_name"] = manager_name
+    return display_row
 
 
 def log_writer(msg):
@@ -100,7 +112,7 @@ def get_leads():
         with open(LEADS_FILE, "r", encoding="utf-8") as f:
             reader = csv.DictReader(f)
             for row in reader:
-                leads.append(row)
+                leads.append(prepare_lead_for_display(row))
     except Exception as e:
         return jsonify({"error": f"Failed to read CSV: {e}"}), 500
 
