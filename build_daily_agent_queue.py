@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Select a capped daily batch for Alamat agent research without using an LLM."""
+"""Select every unreviewed Alamat survivor for resumable agent research."""
 
 import argparse
 import csv
@@ -78,7 +78,7 @@ def instruction_for(row):
     )
 
 
-def build_daily_queue(source, ledger, destination, limit=5, batch_date=None):
+def build_daily_queue(source, ledger, destination, limit=0, batch_date=None):
     batch_date = batch_date or date.today().isoformat()
     with Path(source).open(newline="", encoding="utf-8-sig") as handle:
         rows = list(csv.DictReader(handle))
@@ -106,7 +106,7 @@ def build_daily_queue(source, ledger, destination, limit=5, batch_date=None):
         eligible.append(row)
 
     eligible.sort(key=priority_key, reverse=True)
-    selected = eligible[:limit]
+    selected = eligible if limit == 0 else eligible[:limit]
 
     destination_path = Path(destination)
     destination_path.parent.mkdir(parents=True, exist_ok=True)
@@ -127,11 +127,16 @@ def main():
     parser.add_argument("source", help="Monthly prospect CSV")
     parser.add_argument("destination", help="Daily agent queue CSV")
     parser.add_argument("--ledger", default="ALAMAT_AGENT_REVIEWS.csv", help="Durable completed-review ledger")
-    parser.add_argument("--limit", type=int, default=5, help="Maximum candidates sent to agents")
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=0,
+        help="Maximum candidates sent to agents; 0 includes every eligible survivor",
+    )
     parser.add_argument("--date", help="Batch date in YYYY-MM-DD format")
     args = parser.parse_args()
-    if not 1 <= args.limit <= 20:
-        parser.error("--limit must be between 1 and 20")
+    if args.limit < 0:
+        parser.error("--limit must be 0 or greater")
     build_daily_queue(args.source, args.ledger, args.destination, limit=args.limit, batch_date=args.date)
 
 

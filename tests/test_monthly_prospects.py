@@ -134,6 +134,43 @@ class MonthlyProspectTests(unittest.TestCase):
                 ["ALAMAT_WEEK_1.csv", "ALAMAT_WEEK_2.csv", "ALAMAT_WEEK_3.csv", "ALAMAT_WEEK_4.csv"],
             )
 
+    def test_zero_limit_keeps_all_survivors_and_recovers_series_manager(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            source = os.path.join(temp_dir, "queue.csv")
+            destination = os.path.join(temp_dir, "monthly.csv")
+            rows = [
+                self.base_row(
+                    firm_name="DI-0702",
+                    name="DI-0702 Fund I, a series of Syntax Ventures, LP",
+                    sec_number="series-one",
+                )
+            ] + [
+                self.base_row(
+                    firm_name=f"Fresh Ventures {index}",
+                    name=f"Fresh Ventures {index} Fund I, LP",
+                    sec_number=f"sec-{index}",
+                )
+                for index in range(120)
+            ]
+            fields = sorted({field for row in rows for field in row})
+            with open(source, "w", newline="", encoding="utf-8") as handle:
+                writer = csv.DictWriter(handle, fieldnames=fields)
+                writer.writeheader()
+                writer.writerows(rows)
+
+            selected = build_monthly_queue(
+                source,
+                destination,
+                limit=0,
+                deep_limit=20,
+                today=date(2026, 7, 23),
+            )
+
+            self.assertEqual(len(selected), 121)
+            syntax = next(row for row in selected if row["sec_number"] == "series-one")
+            self.assertEqual(syntax["firm_name"], "Syntax Ventures")
+            self.assertIn("Syntax+Ventures", syntax["linkedin_company_search_url"])
+
     def test_recovered_adequate_site_gets_a_new_offer_instead_of_old_exclusion(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             source = os.path.join(temp_dir, "queue.csv")

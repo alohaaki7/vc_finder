@@ -69,6 +69,33 @@ class AgentReviewTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "external_action_taken"):
                 self.run_apply(temp_dir, self.valid_review(external_action_taken="yes"))
 
+    def test_repeated_batches_keep_a_cumulative_daily_report(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            queue = os.path.join(temp_dir, "queue.csv")
+            reviews = os.path.join(temp_dir, "reviews.csv")
+            ledger = os.path.join(temp_dir, "ledger.csv")
+            report = os.path.join(temp_dir, "report.md")
+            self.write_csv(queue, [
+                {"agent_task_id": "task-1", "record_key": "sec:one", "firm_name": "Northstar Ventures"},
+                {"agent_task_id": "task-2", "record_key": "sec:two", "firm_name": "Southstar Ventures"},
+            ])
+            self.write_csv(reviews, [self.valid_review()], fields=REVIEW_FIELDS)
+            apply_reviews(queue, reviews, ledger, report, report_date="2026-07-24")
+            second = self.valid_review(
+                agent_task_id="task-2",
+                record_key="sec:two",
+                firm_name="Southstar Ventures",
+                linkedin_person="https://linkedin.com/in/southstar",
+            )
+            self.write_csv(reviews, [second], fields=REVIEW_FIELDS)
+            apply_reviews(queue, reviews, ledger, report, report_date="2026-07-24")
+
+            with open(report, encoding="utf-8") as handle:
+                contents = handle.read()
+            self.assertIn("Agent reviewed: 2", contents)
+            self.assertIn("Northstar Ventures", contents)
+            self.assertIn("Southstar Ventures", contents)
+
 
 if __name__ == "__main__":
     unittest.main()

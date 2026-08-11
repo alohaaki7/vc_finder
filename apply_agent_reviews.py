@@ -121,6 +121,22 @@ def write_report(rows, destination, report_date=None):
             ])
     else:
         lines.extend(["## Good leads", "", "None verified in this batch.", ""])
+    lines.extend(["## Every researched candidate", ""])
+    for row in rows:
+        linkedin_person = row.get("linkedin_person") or "Not verified"
+        linkedin_company = row.get("linkedin_company") or "Not verified"
+        outcome_reason = row.get("rejection_reason") or row.get("next_action") or "No additional note recorded."
+        lines.extend([
+            f"### {row['firm_name']} — {row['verdict']}",
+            "",
+            f"- Decision-maker: {row.get('decision_maker') or 'Not verified'}",
+            f"- LinkedIn person: {linkedin_person}",
+            f"- LinkedIn company: {linkedin_company}",
+            f"- Website: {row.get('website_status') or 'unknown'} — {row.get('website_url') or 'no official URL found'}",
+            f"- Outcome: {outcome_reason}",
+            f"- Evidence: {row.get('evidence_sources') or 'No evidence recorded'}",
+            "",
+        ])
     Path(destination).write_text("\n".join(lines), encoding="utf-8")
 
 
@@ -161,7 +177,12 @@ def apply_reviews(queue_path, reviews_path, ledger_path, report_path, report_dat
         writer.writeheader()
         writer.writerows(merged.values())
     os.replace(temp_path, ledger)
-    write_report(normalized_reviews, report_path, report_date=report_date)
+    effective_report_date = report_date or date.today().isoformat()
+    todays_reviews = [
+        row for row in merged.values()
+        if str(row.get("reviewed_at") or "").strip() == effective_report_date
+    ]
+    write_report(todays_reviews, report_path, report_date=effective_report_date)
     print(f"Merged {len(normalized_reviews)} agent reviews into {ledger_path}")
     print(f"Saved daily report to {report_path}")
     return normalized_reviews

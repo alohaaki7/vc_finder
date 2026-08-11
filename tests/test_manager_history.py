@@ -130,6 +130,11 @@ class ManagerHistoryTests(unittest.TestCase):
         self.assertEqual(assessment["manager_status_code"], "likely_new")
         self.assertEqual(assessment["manager_novelty_score"], 95)
 
+    def test_series_issuer_uses_parent_manager_as_clean_name(self):
+        issuer = "DI-0702 Fund I, a series of Syntax Ventures, LP"
+
+        self.assertEqual(clean_firm_name(issuer), "Syntax Ventures")
+
     def test_incomplete_history_check_stays_in_review(self):
         history = {
             "checked": False,

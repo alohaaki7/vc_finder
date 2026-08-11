@@ -37,6 +37,16 @@ def normalize_identity(value):
     return re.sub(r"\s+", " ", text).strip()
 
 
+def extract_series_manager_name(value):
+    """Recover the operating-manager candidate from a verbose SEC series label."""
+    match = re.search(
+        r"(?:a\s+)?series\s+of\s+(.+?)(?:,?\s+(?:l\.?p\.?|l\.?l\.?c\.?|inc\.?|ltd\.?)\s*$|$)",
+        str(value or ""),
+        flags=re.IGNORECASE,
+    )
+    return match.group(1).strip(" ,\"") if match else ""
+
+
 def has_explicit_non_vc_metadata(*values):
     return bool(EXPLICIT_NON_VC_METADATA_PATTERN.search(" ".join(str(value or "") for value in values)))
 
@@ -64,6 +74,7 @@ MONTHLY_FIELDS = [
     "source_confidence",
     "volume_reason",
     "linkedin_search_url",
+    "linkedin_company_search_url",
     "website_search_url",
     "signal_title",
     "signal_source",
@@ -380,6 +391,9 @@ def build_monthly_queue(
         if not eligible:
             continue
         row = dict(original)
+        series_manager = extract_series_manager_name(row.get("name"))
+        if series_manager:
+            row["firm_name"] = series_manager
         score = calculate_prospect_score(row, today=today)
         row.update({
             "prospect_score": str(score),
@@ -391,6 +405,10 @@ def build_monthly_queue(
             "linkedin_search_url": search_url(
                 "https://www.linkedin.com/search/results/people/?keywords=",
                 f"{row.get('contact_name', '')} {row.get('firm_name', '')}",
+            ),
+            "linkedin_company_search_url": search_url(
+                "https://www.linkedin.com/search/results/companies/?keywords=",
+                row.get("firm_name", ""),
             ),
             "website_search_url": search_url(
                 "https://www.google.com/search?q=",
@@ -421,7 +439,7 @@ def build_monthly_queue(
             continue
         seen.add(key)
         selected.append(row)
-        if len(selected) >= limit:
+        if limit and len(selected) >= limit:
             break
 
     deep_used = 0
@@ -452,7 +470,7 @@ def build_monthly_queue(
     completed = sum(row["research_depth"] == "complete" for row in selected)
     light = sum(row["research_depth"] == "light" for row in selected)
     print(f"Deep research: {deep_used}; light verification: {light}; already researched: {completed}")
-    if len(selected) < limit:
+    if limit and len(selected) < limit:
         print(f"Warning: target was {limit}; add non-SEC discovery sources to fill the remaining {limit - len(selected)} rows.")
     print(f"Saved monthly queue to {destination}")
     return selected
@@ -462,7 +480,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("source", help="Durable Alamat queue CSV")
     parser.add_argument("destination", help="Monthly prospect CSV")
-    parser.add_argument("--limit", type=int, default=100, help="Monthly prospect target")
+    parser.add_argument("--limit", type=int, default=0, help="Monthly prospect target; 0 keeps every survivor")
     parser.add_argument("--deep-limit", type=int, default=20, help="Rows reserved for deep research")
     parser.add_argument("--month", help="Batch label in YYYY-MM format")
     parser.add_argument(
@@ -473,10 +491,10 @@ def main():
     )
     parser.add_argument("--weekly-dir", help="Optional directory for 25-row weekly CSV batches")
     args = parser.parse_args()
-    if args.limit < 1:
-        parser.error("--limit must be at least 1")
-    if args.deep_limit < 0 or args.deep_limit > args.limit:
-        parser.error("--deep-limit must be between 0 and --limit")
+    if args.limit < 0:
+        parser.error("--limit must be 0 or greater")
+    if args.deep_limit < 0 or (args.limit and args.deep_limit > args.limit):
+        parser.error("--deep-limit must be non-negative and no greater than a nonzero --limit")
     build_monthly_queue(
         args.source,
         args.destination,

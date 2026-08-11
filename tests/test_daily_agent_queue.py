@@ -62,6 +62,21 @@ class DailyAgentQueueTests(unittest.TestCase):
 
             self.assertEqual(selected[0]["firm_name"], "Deep Lower")
 
+    def test_default_zero_limit_keeps_every_eligible_survivor(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            source = os.path.join(temp_dir, "monthly.csv")
+            destination = os.path.join(temp_dir, "daily.csv")
+            rows = [self.row(index) for index in range(1, 31)]
+            self.write_csv(source, rows)
+
+            selected = build_daily_queue(
+                source,
+                os.path.join(temp_dir, "missing.csv"),
+                destination,
+            )
+
+            self.assertEqual(len(selected), 30)
+
 
 if __name__ == "__main__":
     unittest.main()

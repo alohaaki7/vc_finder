@@ -61,7 +61,7 @@ jobs:
             ALAMAT_90D_DISCOVERY.csv \
             ALAMAT_MONTHLY_PROSPECTS_100.csv \
             --external ALAMAT_PUBLIC_LAUNCH_SIGNALS.csv \
-            --limit 100 \
+            --limit 0 \
             --deep-limit 20 \
             --month "$(date -u +%Y-%m)" \
             --weekly-dir ALAMAT_WEEKLY_BATCHES
@@ -69,7 +69,7 @@ jobs:
             ALAMAT_MONTHLY_PROSPECTS_100.csv \
             ALAMAT_AGENT_QUEUE_TODAY.csv \
             --ledger ALAMAT_AGENT_REVIEWS.csv \
-            --limit 5
+            --limit 0
 
       - name: Upload working queues
         uses: actions/upload-artifact@v4

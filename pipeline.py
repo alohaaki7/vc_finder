@@ -358,9 +358,19 @@ MANAGER_STOP_WORDS = {
 }
 
 
+def extract_series_manager_name(firm_name):
+    """Return the parent manager named by an SEC ``series of`` issuer label."""
+    match = re.search(
+        r"(?:a\s+)?series\s+of\s+(.+?)(?:,?\s+(?:l\.?p\.?|l\.?l\.?c\.?|inc\.?|ltd\.?)\s*$|$)",
+        str(firm_name or ""),
+        flags=re.IGNORECASE,
+    )
+    return match.group(1).strip(" ,\"") if match else ""
+
+
 def clean_firm_name(firm_name):
-    """Remove fund numbering and legal suffixes from an issuer name."""
-    clean_name = str(firm_name or "")
+    """Return the best operating-manager name while preserving the raw issuer elsewhere."""
+    clean_name = extract_series_manager_name(firm_name) or str(firm_name or "")
     clean_name = re.sub(
         r",?\s*fund\s*(I+|[0-9]+|one|two).*$",
         "",
