@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VC Lead Finder & Website Scanner</title>
+    <title>Newest VC Firm Finder</title>
     <!-- Modern Premium Typography -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -623,7 +623,7 @@
                 <div class="logo-symbol">⚡</div>
                 <div>
                     <h1>VC Lead Engine</h1>
-                    <p style="font-size: 0.75rem; color: var(--text-muted);">SEC EDGAR Crawler & Website Quality Scanner</p>
+                    <p style="font-size: 0.75rem; color: var(--text-muted);">SEC EDGAR Fresh Fund Signal Detector</p>
                 </div>
             </div>
             
@@ -639,9 +639,9 @@
                 <div class="controller-group">
                     <label for="lead-size">Min Size</label>
                     <select id="lead-size">
-                        <option value="0">Any Size</option>
+                        <option value="0" selected>Any Size</option>
                         <option value="1000000">Above $1M</option>
-                        <option value="5000000" selected>Above $5M</option>
+                        <option value="5000000">Above $5M</option>
                         <option value="10000000">Above $10M</option>
                         <option value="25000000">Above $25M</option>
                     </select>
@@ -669,24 +669,24 @@
                 <span class="metric-desc">Curated in master leadsheet</span>
             </div>
             <div class="metric-card m-first">
-                <span class="metric-title">Original Filings</span>
+                <span class="metric-title">New This Run</span>
                 <span class="metric-value" id="stat-first">-</span>
-                <span class="metric-desc">New filings (not amendments)</span>
+                <span class="metric-desc">Not in the prior master CSV</span>
             </div>
             <div class="metric-card m-redesign">
-                <span class="metric-title">High VC Score</span>
+                <span class="metric-title">Likely New Firms</span>
                 <span class="metric-value" id="stat-emails">-</span>
-                <span class="metric-desc">Leads with score 7+</span>
+                <span class="metric-desc">No prior manager history found</span>
             </div>
             <div class="metric-card m-noweb">
-                <span class="metric-title">Website Discovered</span>
+                <span class="metric-title">Existing Managers</span>
                 <span class="metric-value" id="stat-noweb">-</span>
-                <span class="metric-desc">Leads with website domain</span>
+                <span class="metric-desc">Prior fund or Fund II evidence</span>
             </div>
             <div class="metric-card m-fund">
-                <span class="metric-title">US-Based Firms</span>
+                <span class="metric-title">Needs Review</span>
                 <span class="metric-value" id="stat-us-based">-</span>
-                <span class="metric-desc">Operating in the United States</span>
+                <span class="metric-desc">Weak or incomplete identity check</span>
             </div>
         </div>
 
@@ -695,7 +695,7 @@
             <!-- Left Panel: Table -->
             <div class="panel">
                 <div class="panel-header">
-                    <h2 class="panel-title">Scouted VC & PE Firm Leads</h2>
+                    <h2 class="panel-title">Newest VC Firm Candidates</h2>
                     <a href="/api/leads" download="ALL_VC_LEADS.csv" class="btn-action" style="padding: 0.4rem 0.8rem; border-radius: 8px;">
                         📥 Download Master CSV
                     </a>
@@ -705,15 +705,18 @@
                 <div class="search-filter-bar">
                     <div class="search-wrapper">
                         <span class="search-icon">🔍</span>
-                        <input type="text" id="search-input" class="search-input" placeholder="Search firm, contact, email..." oninput="filterData()">
+                        <input type="text" id="search-input" class="search-input" placeholder="Search firm, contact, signal..." oninput="filterData()">
                     </div>
                     <div class="filter-tags">
-                        <button class="filter-tag active" onclick="setFilerFilter('all', this)">All Filers</button>
-                        <button class="filter-tag" onclick="setFilerFilter('first_filer', this)">🔥 Original</button>
-                        <button class="filter-tag" onclick="setFilerFilter('new_filer', this)">⭐ Amendments</button>
-                        <button class="filter-tag" onclick="setWebFilter('all', this)">All Domains</button>
-                        <button class="filter-tag" onclick="setWebFilter('has_site', this)">🌐 Has Website</button>
-                        <button class="filter-tag" onclick="setWebFilter('no_site', this)">❌ No Website</button>
+                        <button class="filter-tag active" data-filter-group="run" onclick="setRunFilter('all', this)">All Runs</button>
+                        <button class="filter-tag" data-filter-group="run" onclick="setRunFilter('new', this)">New This Run</button>
+                        <button class="filter-tag active" id="manager-filter-all" data-filter-group="manager" onclick="setManagerFilter('all', this)">All Manager States</button>
+                        <button class="filter-tag" id="manager-filter-likely" data-filter-group="manager" onclick="setManagerFilter('likely_new', this)">Likely New Firms</button>
+                        <button class="filter-tag" data-filter-group="manager" onclick="setManagerFilter('existing_manager', this)">Existing Managers</button>
+                        <button class="filter-tag" data-filter-group="manager" onclick="setManagerFilter('needs_review', this)">Needs Review</button>
+                        <button class="filter-tag active" data-filter-group="stage" onclick="setStageFilter('all', this)">All Stages</button>
+                        <button class="filter-tag" data-filter-group="stage" onclick="setStageFilter('Fund I', this)">Fund I</button>
+                        <button class="filter-tag" data-filter-group="stage" onclick="setStageFilter('Fund II', this)">Fund II</button>
                     </div>
                 </div>
 
@@ -723,11 +726,11 @@
                         <thead>
                             <tr>
                                 <th onclick="sortLeads('firm_name')">Firm Name</th>
-                                <th onclick="sortLeads('vc_score')">VC Score</th>
+                                <th onclick="sortLeads('manager_novelty_score')">Manager Verdict</th>
+                                <th onclick="sortLeads('freshness_score')">Freshness</th>
                                 <th onclick="sortLeads('fund_stage')">Stage</th>
-                                <th onclick="sortLeads('filer_status')">Filing Type</th>
                                 <th onclick="sortLeads('city')">Location</th>
-                                <th onclick="sortLeads('domain')">Website</th>
+                                <th onclick="sortLeads('date_of_first_sale')">First Sale</th>
                                 <th onclick="sortLeads('filing_date')">Filing Date</th>
                             </tr>
                         </thead>
@@ -759,6 +762,22 @@
                         <div class="info-item">
                             <span class="info-label">Accession Number</span>
                             <span class="info-value" id="det-sec-num">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Manager Verdict</span>
+                            <span class="info-value" id="det-manager-status">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Manager Confidence</span>
+                            <span class="info-value" id="det-manager-confidence">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Manager History Evidence</span>
+                            <span class="info-value" id="det-manager-history">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Earliest Prior Fund Filing</span>
+                            <span class="info-value" id="det-manager-first-filing">-</span>
                         </div>
                         <div class="info-item">
                             <span class="info-label">Filing Date</span>
@@ -797,17 +816,29 @@
                             <span class="info-value" id="det-address">-</span>
                         </div>
                         <div class="info-item">
-                            <span class="info-label">Likely VC Score</span>
+                            <span class="info-label">Freshness / VC Score</span>
                             <span class="info-value" id="det-vc-score">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Freshness Reason</span>
+                            <span class="info-value" id="det-freshness">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">First Seen in App</span>
+                            <span class="info-value" id="det-first-seen">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Last Seen in Scan</span>
+                            <span class="info-value" id="det-last-seen">-</span>
                         </div>
                     </div>
 
                     <div class="action-grid">
-                        <button class="btn-action" onclick="copyEmailToClipboard()">
-                            Copy Email
-                        </button>
                         <a href="#" target="_blank" class="btn-action" id="link-sec">
-                            View SEC IAPD Profile
+                            View SEC Filing
+                        </a>
+                        <a href="#" target="_blank" class="btn-action" id="link-history" style="display: none;">
+                            View Prior Fund Filing
                         </a>
                     </div>
                 </div>
@@ -815,7 +846,7 @@
                 <div class="panel" id="detail-placeholder">
                     <div class="empty-placeholder">
                         <div class="empty-icon">👤</div>
-                        <p>Select a lead from the table to view contact info, location details, and website builder platform.</p>
+                        <p>Select a lead to review its SEC manager-history evidence and related people.</p>
                     </div>
                 </div>
 
@@ -839,9 +870,10 @@
         let filteredLeads = [];
         let selectedLeadCrd = null;
         
-        let filerFilter = 'all';
-        let webFilter = 'all';
-        let sortKey = 'filing_date';
+        let runFilter = 'all';
+        let managerFilter = 'all';
+        let stageFilter = 'all';
+        let sortKey = 'manager_novelty_score';
         let sortAsc = false;
 
         // Init
@@ -857,10 +889,10 @@
                 const r = await fetch('/api/stats?_t=' + Date.now());
                 const stats = await r.json();
                 document.getElementById('stat-total').textContent = stats.total_leads;
-                document.getElementById('stat-first').textContent = stats.first_time_filers;
-                document.getElementById('stat-emails').textContent = stats.emails_found;
-                document.getElementById('stat-noweb').textContent = stats.no_website;
-                document.getElementById('stat-us-based').textContent = stats.us_based_firms;
+                document.getElementById('stat-first').textContent = stats.new_since_last_run;
+                document.getElementById('stat-emails').textContent = stats.likely_new_firms;
+                document.getElementById('stat-noweb').textContent = stats.existing_managers;
+                document.getElementById('stat-us-based').textContent = stats.needs_review;
             } catch (e) {
                 console.error("Error fetching stats:", e);
             }
@@ -870,6 +902,11 @@
             try {
                 const r = await fetch('/api/leads?_t=' + Date.now());
                 allLeads = await r.json();
+                if (allLeads.some(lead => managerStatusCode(lead) === 'likely_new')) {
+                    managerFilter = 'likely_new';
+                    document.querySelectorAll('[data-filter-group="manager"]').forEach(t => t.classList.remove('active'));
+                    document.getElementById('manager-filter-likely').classList.add('active');
+                }
                 filterData();
             } catch (e) {
                 console.error("Error fetching leads:", e);
@@ -877,25 +914,35 @@
         }
 
         // 2. Sorting & Filtering
-        function setFilerFilter(val, el) {
-            document.querySelectorAll('.filter-tag').forEach(t => {
-                if (t.textContent.includes('First') || t.textContent.includes('New') || t.textContent.includes('All Filers')) {
-                    t.classList.remove('active');
-                }
-            });
+        function isNewLead(lead) {
+            return String(lead.is_new_since_last_run || '').toLowerCase() === 'yes';
+        }
+
+        function managerStatusCode(lead) {
+            const code = lead.manager_status_code || 'not_checked';
+            return code === 'not_checked' ? 'needs_review' : code;
+        }
+
+        function activateFilterButton(group, el) {
+            document.querySelectorAll(`[data-filter-group="${group}"]`).forEach(t => t.classList.remove('active'));
             el.classList.add('active');
-            filerFilter = val;
+        }
+
+        function setRunFilter(val, el) {
+            activateFilterButton('run', el);
+            runFilter = val;
             filterData();
         }
 
-        function setWebFilter(val, el) {
-            document.querySelectorAll('.filter-tag').forEach(t => {
-                if (t.textContent.includes('No Website') || t.textContent.includes('Parked') || t.textContent.includes('All Domains')) {
-                    t.classList.remove('active');
-                }
-            });
-            el.classList.add('active');
-            webFilter = val;
+        function setManagerFilter(val, el) {
+            activateFilterButton('manager', el);
+            managerFilter = val;
+            filterData();
+        }
+
+        function setStageFilter(val, el) {
+            activateFilterButton('stage', el);
+            stageFilter = val;
             filterData();
         }
 
@@ -905,26 +952,25 @@
             filteredLeads = allLeads.filter(lead => {
                 // Search query matching
                 const matchesSearch = 
-                    lead.firm_name.toLowerCase().includes(query) ||
-                    lead.name.toLowerCase().includes(query) ||
-                    lead.contact_name.toLowerCase().includes(query) ||
-                    lead.domain.toLowerCase().includes(query);
+                    (lead.firm_name || '').toLowerCase().includes(query) ||
+                    (lead.name || '').toLowerCase().includes(query) ||
+                    (lead.contact_name || '').toLowerCase().includes(query) ||
+                    (lead.signal_type || '').toLowerCase().includes(query) ||
+                    (lead.freshness_reason || '').toLowerCase().includes(query) ||
+                    (lead.manager_history_reason || '').toLowerCase().includes(query) ||
+                    (lead.manager_matched_identity || '').toLowerCase().includes(query);
 
-                // Filer filter matching
-                let matchesFiler = true;
-                if (filerFilter !== 'all') {
-                    matchesFiler = lead.filer_status === filerFilter;
+                const matchesManager = managerFilter === 'all' || managerStatusCode(lead) === managerFilter;
+
+                // Fund stage filter matching
+                let matchesStage = true;
+                if (stageFilter !== 'all') {
+                    matchesStage = lead.fund_stage === stageFilter;
                 }
 
-                // Domain filter matching
-                let matchesWeb = true;
-                if (webFilter === 'no_site') {
-                    matchesWeb = !lead.domain;
-                } else if (webFilter === 'has_site') {
-                    matchesWeb = !!lead.domain;
-                }
+                const matchesRun = runFilter !== 'new' || isNewLead(lead);
 
-                return matchesSearch && matchesFiler && matchesWeb;
+                return matchesSearch && matchesManager && matchesStage && matchesRun;
             });
 
             sortData();
@@ -948,7 +994,10 @@
                 let valB = b[sortKey];
 
                 // Parse numbers for score and filings
-                if (sortKey === 'site_score' || sortKey === 'vc_score' || sortKey === 'total_filings') {
+                if (sortKey === 'is_new_since_last_run') {
+                    valA = isNewLead(a) ? 1 : 0;
+                    valB = isNewLead(b) ? 1 : 0;
+                } else if (sortKey === 'site_score' || sortKey === 'vc_score' || sortKey === 'freshness_score' || sortKey === 'manager_novelty_score' || sortKey === 'total_filings') {
                     valA = parseInt(valA) || 0;
                     valB = parseInt(valB) || 0;
                 }
@@ -975,34 +1024,30 @@
                     tr.classList.add('selected');
                 }
 
-                // Filer type badges
-                let filerBadge = '';
-                if (lead.filer_status === 'first_filer') {
-                    filerBadge = `<span class="badge badge-first">Original</span>`;
-                } else if (lead.filer_status === 'new_filer') {
-                    filerBadge = `<span class="badge badge-new">Amendment</span>`;
-                } else {
-                    filerBadge = `<span class="badge badge-estab">${lead.filer_status || 'Established'}</span>`;
-                }
+                const managerCode = managerStatusCode(lead);
+                const managerLabel = lead.manager_status || 'Not checked';
+                const managerBadgeClass = managerCode === 'likely_new'
+                    ? 'badge-first'
+                    : (managerCode === 'existing_manager' ? 'badge-estab' : 'badge-new');
+                const managerBadge = `<span class="badge ${managerBadgeClass}">${managerLabel}</span>`;
 
                 // VC Score badges
-                const score = parseInt(lead.vc_score || lead.site_score) || 0;
+                const score = parseInt(lead.freshness_score || lead.vc_score || lead.site_score) || 0;
                 let scoreClass = 'score-low';
-                if (score >= 7) scoreClass = 'score-high';
-                else if (score >= 4) scoreClass = 'score-mid';
+                if (score >= 12) scoreClass = 'score-high';
+                else if (score >= 7) scoreClass = 'score-mid';
                 const scoreBadge = `<div class="score-circle ${scoreClass}">${score}</div>`;
 
-                const webDisplay = lead.domain 
-                    ? `<span class="domain-tag">🌐 ${lead.domain}</span>` 
-                    : `<span class="domain-tag" style="color: var(--accent-red);">❌ No Site</span>`;
+                const firstSaleDisplay = lead.date_of_first_sale || 'Yet to Occur';
+                const newBadge = isNewLead(lead) ? `<span class="badge badge-first" style="margin-left: 0.45rem;">New</span>` : '';
 
                 tr.innerHTML = `
-                    <td style="font-weight: 600;">${lead.firm_name}</td>
+                    <td style="font-weight: 600;">${lead.firm_name}${newBadge}</td>
+                    <td>${managerBadge}</td>
                     <td>${scoreBadge}</td>
                     <td>${lead.fund_stage}</td>
-                    <td>${filerBadge}</td>
                     <td style="font-weight: 500;">${(lead.city && lead.state) ? `${lead.city}, ${lead.state}` : (lead.city || lead.state || lead.country || '-')}</td>
-                    <td>${webDisplay}</td>
+                    <td>${firstSaleDisplay}</td>
                     <td>${lead.filing_date}</td>
                 `;
 
@@ -1026,6 +1071,12 @@
             document.getElementById('det-name').textContent = lead.name;
             document.getElementById('det-crd').textContent = lead.crd || 'N/A';
             document.getElementById('det-sec-num').textContent = lead.sec_number || 'N/A';
+            document.getElementById('det-manager-status').textContent = lead.manager_status || 'Not checked';
+            document.getElementById('det-manager-confidence').textContent = lead.manager_confidence || 'Unknown';
+            document.getElementById('det-manager-history').textContent = lead.manager_history_reason || 'Run the pipeline again to check SEC manager history.';
+            document.getElementById('det-manager-first-filing').textContent = lead.manager_first_filing_date
+                ? `${lead.manager_first_filing_date}${lead.manager_history_name ? ` - ${lead.manager_history_name}` : ''}`
+                : 'None found';
             document.getElementById('det-filing-date').textContent = lead.filing_date || 'N/A';
             document.getElementById('det-first-sale').textContent = lead.date_of_first_sale || 'Yet to Occur';
             document.getElementById('det-fund-size').textContent = lead.fund_size || 'N/A';
@@ -1041,28 +1092,24 @@
 
             // Score badge in details
             const score = parseInt(lead.vc_score || lead.site_score) || 0;
-            let scoreClass = 'score-low';
-            if (score >= 7) scoreClass = 'score-high';
-            else if (score >= 4) scoreClass = 'score-mid';
-            document.getElementById('det-vc-score').innerHTML = `<span class="badge ${score >= 7 ? 'badge-first' : (score >= 4 ? 'badge-new' : 'badge-estab')}" style="padding: 0.4rem 0.8rem; font-size: 0.9rem;">Score: ${score}</span>`;
+            const freshScore = parseInt(lead.freshness_score || 0);
+            document.getElementById('det-vc-score').innerHTML = `<span class="badge ${freshScore >= 12 ? 'badge-first' : (freshScore >= 7 ? 'badge-new' : 'badge-estab')}" style="padding: 0.4rem 0.8rem; font-size: 0.9rem;">Fresh: ${freshScore} / Total: ${score}</span>`;
+            document.getElementById('det-freshness').textContent = lead.freshness_reason || lead.signal_type || 'N/A';
+            document.getElementById('det-first-seen').textContent = lead.first_seen_at || 'N/A';
+            document.getElementById('det-last-seen').textContent = lead.last_seen_at || 'N/A';
 
             // SEC Profile URL
             const secLink = document.getElementById('link-sec');
             secLink.href = lead.filing_url || '#';
+            const historyLink = document.getElementById('link-history');
+            historyLink.href = lead.manager_history_url || '#';
+            historyLink.style.display = lead.manager_history_url ? '' : 'none';
         }
 
         // Helper String extension
         String.prototype.strip = function() {
             return this.replace(/^\s+|\s+$/g, '');
         };
-
-        function copyEmailToClipboard() {
-            const email = document.getElementById('det-email').textContent;
-            if (email && email !== 'N/A') {
-                navigator.clipboard.writeText(email);
-                alert('Copied email to clipboard!');
-            }
-        }
 
         // 5. Trigger Pipeline & Read Logs
         let logInterval = null;
