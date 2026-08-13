@@ -934,6 +934,9 @@
                         <a href="#" target="_blank" rel="noopener noreferrer" class="btn-action btn-linkedin" id="link-linkedin-company">
                             Open company LinkedIn
                         </a>
+                        <a href="#" target="_blank" rel="noopener noreferrer" class="btn-action" id="link-linkedin-google">
+                            Find manager via Google
+                        </a>
                         <a href="#" target="_blank" rel="noopener noreferrer" class="btn-action" id="link-website">
                             Open website
                         </a>
@@ -1196,6 +1199,13 @@
                 : '';
         }
 
+        function googleLinkedinSearchUrl(person, firm) {
+            const terms = ['site:linkedin.com/in'];
+            if (person) terms.push(`"${person}"`);
+            if (firm) terms.push(`"${firm}"`);
+            return `https://www.google.com/search?q=${encodeURIComponent(terms.join(' '))}`;
+        }
+
         // 4. Select Lead & Populate Details Panel
         function selectLead(lead, rowEl) {
             document.querySelectorAll('tr').forEach(r => r.classList.remove('selected'));
@@ -1241,8 +1251,13 @@
 
             const personExact = validExternalUrl(lead.linkedin_person);
             const companyExact = validExternalUrl(lead.linkedin_company);
-            const personSearch = linkedinSearchUrl('people', `${contactName} ${lead.firm_name}`);
-            const companySearch = linkedinSearchUrl('companies', lead.firm_name);
+            const searchFirm = String(lead.linkedin_search_firm || lead.firm_name || '').trim();
+            const searchPerson = String(lead.linkedin_search_person || '').trim();
+            const personQuery = searchPerson
+                ? `${searchPerson} ${searchFirm}`
+                : `${searchFirm} founder partner`;
+            const personSearch = linkedinSearchUrl('people', personQuery);
+            const companySearch = linkedinSearchUrl('companies', searchFirm);
             configureLeadAction(
                 'link-linkedin-person',
                 personExact || personSearch,
@@ -1254,6 +1269,12 @@
                 companyExact || companySearch,
                 companyExact ? 'Open company LinkedIn' : 'Search company on LinkedIn',
                 !companyExact,
+            );
+            configureLeadAction(
+                'link-linkedin-google',
+                googleLinkedinSearchUrl(searchPerson, searchFirm),
+                'Find manager via Google',
+                true,
             );
             configureLeadAction(
                 'link-website',

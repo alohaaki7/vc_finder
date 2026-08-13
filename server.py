@@ -8,9 +8,10 @@ display real-time logs, and fetch high-level metrics.
 import os
 import csv
 import json
+import re
 import threading
 from flask import Flask, jsonify, request, send_from_directory, render_template_string
-from pipeline import clean_firm_name, run_pipeline
+from pipeline import clean_firm_name, extract_related_name, is_entity_identity, run_pipeline
 
 app = Flask(__name__, static_folder="templates")
 
@@ -49,7 +50,35 @@ def prepare_lead_for_display(row):
         if manager_name:
             display_row["sec_vehicle_name"] = display_row.get("firm_name") or issuer_name
             display_row["firm_name"] = manager_name
+    display_row["linkedin_search_firm"] = linkedin_search_firm(display_row.get("firm_name"))
+    display_row["linkedin_search_person"] = linkedin_search_person(display_row)
     return display_row
+
+
+def linkedin_search_firm(value):
+    """Reduce an SEC fund vehicle label to the operating brand used in public search."""
+    name = clean_firm_name(value)
+    name = re.sub(
+        r"\s*(?:-|,)?\s*(?:fund|feeder|series|spv)\s*(?:[ivx]+|\d+|one|two)?\b.*$",
+        "",
+        name,
+        flags=re.IGNORECASE,
+    )
+    name = re.sub(r",?\s*(?:l\.?p\.?|l\.?l\.?c\.?|inc\.?|ltd\.?)\s*$", "", name, flags=re.IGNORECASE)
+    return re.sub(r"\s+", " ", name).strip(" ,-.") or clean_firm_name(value)
+
+
+def linkedin_search_person(row):
+    """Choose a human SEC-associated person instead of a GP or management entity."""
+    candidates = [row.get("contact_name", "")]
+    candidates.extend(str(row.get("all_contacts") or "").split(";"))
+
+    for candidate in candidates:
+        name = extract_related_name(candidate)
+        name = re.sub(r"^(?:n/?a|general partner|management company)\s+", "", name, flags=re.IGNORECASE)
+        if name and not is_entity_identity(name) and len(name.split()) >= 2:
+            return name.title() if name.isupper() else name
+    return ""
 
 
 def log_writer(msg):
