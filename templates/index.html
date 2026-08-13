@@ -1023,31 +1023,39 @@
             return code === 'not_checked' ? 'needs_review' : code;
         }
 
-        function activateFilterButton(group, el) {
-            document.querySelectorAll(`[data-filter-group="${group}"]`).forEach(t => t.classList.remove('active'));
-            el.classList.add('active');
+        function activateFilterButton(group, el, value) {
+            const buttons = document.querySelectorAll(`[data-filter-group="${group}"]`);
+            const shouldReset = value !== 'all' && el.classList.contains('active');
+            const nextValue = shouldReset ? 'all' : value;
+
+            buttons.forEach(button => {
+                const isActive = shouldReset
+                    ? button.textContent.trim().startsWith('All ')
+                    : button === el;
+                button.classList.toggle('active', isActive);
+                button.setAttribute('aria-pressed', String(isActive));
+            });
+
+            return nextValue;
         }
 
         function setRunFilter(val, el) {
-            activateFilterButton('run', el);
-            runFilter = val;
+            runFilter = activateFilterButton('run', el, val);
             filterData();
         }
 
         function setManagerFilter(val, el) {
-            activateFilterButton('manager', el);
-            managerFilter = val;
+            managerFilter = activateFilterButton('manager', el, val);
             filterData();
         }
 
         function setStageFilter(val, el) {
-            activateFilterButton('stage', el);
-            stageFilter = val;
+            stageFilter = activateFilterButton('stage', el, val);
             filterData();
         }
 
         function filterData() {
-            const query = document.getElementById('search-input').value.toLowerCase().strip();
+            const query = document.getElementById('search-input').value.toLowerCase().trim();
             
             filteredLeads = allLeads.filter(lead => {
                 // Search query matching
