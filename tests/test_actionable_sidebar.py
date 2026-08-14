@@ -36,6 +36,8 @@ class ActionableSidebarTests(unittest.TestCase):
         self.assertIn("companyExact || companySearch", self.template)
         self.assertIn("founder \"general partner\" \"managing partner\"", self.template)
         self.assertIn("Check SEC person", self.template)
+        self.assertIn("linkedinSearchUrl('people', secPerson)", self.template)
+        self.assertNotIn("`${secPerson} ${searchFirm}`", self.template)
 
 
 if __name__ == "__main__":
