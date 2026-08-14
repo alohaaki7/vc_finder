@@ -1,6 +1,11 @@
 import unittest
 
-from server import linkedin_search_firm, linkedin_search_person, prepare_lead_for_display
+from server import (
+    linkedin_manager_candidate,
+    linkedin_search_firm,
+    linkedin_search_person,
+    prepare_lead_for_display,
+)
 
 
 class ServerDisplayTests(unittest.TestCase):
@@ -49,6 +54,33 @@ class ServerDisplayTests(unittest.TestCase):
         }
 
         self.assertEqual(linkedin_search_person(row), "David Sacks")
+
+    def test_generic_sec_officer_is_not_assumed_to_be_manager(self):
+        row = {
+            "contact_name": "Chris Wood",
+            "contact_title": "Executive Officer, Director, Promoter",
+            "all_contacts": "Chris Wood (Executive Officer, Director, Promoter)",
+        }
+
+        self.assertEqual(linkedin_manager_candidate(row), "")
+
+    def test_explicit_investment_role_is_a_manager_candidate(self):
+        row = {
+            "contact_name": "Rachel Chalmers",
+            "contact_title": "Managing Partner",
+            "all_contacts": "Rachel Chalmers (Managing Partner)",
+        }
+
+        self.assertEqual(linkedin_manager_candidate(row), "Rachel Chalmers")
+
+    def test_verified_contact_is_a_manager_candidate(self):
+        row = {
+            "contact_name": "Michelle Yi",
+            "contact_title": "Executive Officer",
+            "contact_verification_status": "verified_public",
+        }
+
+        self.assertEqual(linkedin_manager_candidate(row), "Michelle Yi")
 
 
 if __name__ == "__main__":

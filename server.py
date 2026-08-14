@@ -52,6 +52,7 @@ def prepare_lead_for_display(row):
             display_row["firm_name"] = manager_name
     display_row["linkedin_search_firm"] = linkedin_search_firm(display_row.get("firm_name"))
     display_row["linkedin_search_person"] = linkedin_search_person(display_row)
+    display_row["linkedin_manager_candidate"] = linkedin_manager_candidate(display_row)
     return display_row
 
 
@@ -77,6 +78,39 @@ def linkedin_search_person(row):
         name = extract_related_name(candidate)
         name = re.sub(r"^(?:n/?a|general partner|management company)\s+", "", name, flags=re.IGNORECASE)
         if name and not is_entity_identity(name) and len(name.split()) >= 2:
+            return name.title() if name.isupper() else name
+    return ""
+
+
+MANAGER_ROLE_PATTERN = re.compile(
+    r"\b(founder|co-?founder|founding partner|managing partner|general partner|"
+    r"chief investment officer|investment partner|venture partner|fund manager|"
+    r"managing director|partner)\b",
+    flags=re.IGNORECASE,
+)
+
+
+def linkedin_manager_candidate(row):
+    """Return a person only when the stored evidence identifies an investment decision-maker."""
+    person = linkedin_search_person(row)
+    verification = str(row.get("contact_verification_status") or "").strip().lower()
+    if person and verification in {"verified", "verified_public"}:
+        return person
+
+    candidates = [(row.get("contact_name", ""), row.get("contact_title", ""))]
+    for raw in str(row.get("all_contacts") or "").split(";"):
+        role_match = re.search(r"\(([^()]*)\)\s*$", raw)
+        candidates.append((extract_related_name(raw), role_match.group(1) if role_match else ""))
+
+    for raw_name, role in candidates:
+        name = extract_related_name(raw_name)
+        name = re.sub(r"^(?:n/?a|general partner|management company)\s+", "", name, flags=re.IGNORECASE)
+        if (
+            name
+            and not is_entity_identity(name)
+            and len(name.split()) >= 2
+            and MANAGER_ROLE_PATTERN.search(str(role or ""))
+        ):
             return name.title() if name.isupper() else name
     return ""
 

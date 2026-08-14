@@ -937,6 +937,9 @@
                         <a href="#" target="_blank" rel="noopener noreferrer" class="btn-action" id="link-linkedin-google">
                             Find manager via Google
                         </a>
+                        <a href="#" target="_blank" rel="noopener noreferrer" class="btn-action" id="link-linkedin-sec-person">
+                            Check SEC person
+                        </a>
                         <a href="#" target="_blank" rel="noopener noreferrer" class="btn-action" id="link-website">
                             Open website
                         </a>
@@ -1203,6 +1206,7 @@
             const terms = ['site:linkedin.com/in'];
             if (person) terms.push(`"${person}"`);
             if (firm) terms.push(`"${firm}"`);
+            if (!person) terms.push('(founder OR "general partner" OR "managing partner")');
             return `https://www.google.com/search?q=${encodeURIComponent(terms.join(' '))}`;
         }
 
@@ -1228,10 +1232,10 @@
             const contactTitle = String(lead.contact_title || '').trim();
             document.getElementById('det-contact').textContent = contactName
                 ? `${contactName}${contactTitle ? ` — ${contactTitle}` : ''}`
-                : 'Manager not verified';
+                : 'No human SEC contact identified';
             document.getElementById('det-contact-status').textContent = contactName
-                ? `Identity status: ${(lead.contact_verification_status || 'unverified').replaceAll('_', ' ')}`
-                : 'Public identity still needs research.';
+                ? `SEC contact only. Manager identity: ${(lead.contact_verification_status || 'unverified').replaceAll('_', ' ')}.`
+                : 'Founder, GP, or managing partner still needs research.';
 
             const contacts = lead.all_contacts ? lead.all_contacts.replace(/; /g, '\n') : 'None disclosed';
             document.getElementById('det-related-people').textContent = contacts;
@@ -1252,16 +1256,17 @@
             const personExact = validExternalUrl(lead.linkedin_person);
             const companyExact = validExternalUrl(lead.linkedin_company);
             const searchFirm = String(lead.linkedin_search_firm || lead.firm_name || '').trim();
-            const searchPerson = String(lead.linkedin_search_person || '').trim();
-            const personQuery = searchPerson
-                ? `${searchPerson} ${searchFirm}`
-                : `${searchFirm} founder partner`;
+            const secPerson = String(lead.linkedin_search_person || '').trim();
+            const managerCandidate = String(lead.linkedin_manager_candidate || '').trim();
+            const personQuery = managerCandidate
+                ? `${managerCandidate} ${searchFirm}`
+                : `${searchFirm} founder "general partner" "managing partner"`;
             const personSearch = linkedinSearchUrl('people', personQuery);
             const companySearch = linkedinSearchUrl('companies', searchFirm);
             configureLeadAction(
                 'link-linkedin-person',
                 personExact || personSearch,
-                personExact ? 'Open manager LinkedIn' : 'Search manager on LinkedIn',
+                personExact ? 'Open verified manager LinkedIn' : 'Search decision-makers on LinkedIn',
                 !personExact,
             );
             configureLeadAction(
@@ -1272,8 +1277,14 @@
             );
             configureLeadAction(
                 'link-linkedin-google',
-                googleLinkedinSearchUrl(searchPerson, searchFirm),
-                'Find manager via Google',
+                googleLinkedinSearchUrl(managerCandidate, searchFirm),
+                managerCandidate ? 'Find verified manager via Google' : 'Find decision-makers via Google',
+                true,
+            );
+            configureLeadAction(
+                'link-linkedin-sec-person',
+                secPerson ? linkedinSearchUrl('people', `${secPerson} ${searchFirm}`) : '',
+                secPerson ? `Check SEC person: ${secPerson}` : 'No human SEC person',
                 true,
             );
             configureLeadAction(

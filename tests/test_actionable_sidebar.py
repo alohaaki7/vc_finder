@@ -13,7 +13,7 @@ class ActionableSidebarTests(unittest.TestCase):
         for expected in (
             "Capital signal",
             "SEC-associated people and entities",
-            "Open manager LinkedIn",
+            "Open verified manager LinkedIn",
             "Open company LinkedIn",
             "Open website",
             "Why it is in the pipeline",
@@ -34,6 +34,8 @@ class ActionableSidebarTests(unittest.TestCase):
         self.assertIn("linkedinSearchUrl('companies'", self.template)
         self.assertIn("personExact || personSearch", self.template)
         self.assertIn("companyExact || companySearch", self.template)
+        self.assertIn("founder \"general partner\" \"managing partner\"", self.template)
+        self.assertIn("Check SEC person", self.template)
 
 
 if __name__ == "__main__":
