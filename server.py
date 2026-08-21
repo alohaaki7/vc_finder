@@ -67,7 +67,9 @@ def prepare_backlog_for_display(row, index=0):
     """
     display_row = dict(row)
     display_row["backlog_id"] = f"backlog-{index}"
-    display_row["linkedin_search_firm"] = linkedin_search_firm(display_row.get("firm_name"))
+    display_row["linkedin_search_firm"] = linkedin_search_firm(
+        display_row.get("firm_name") or display_row.get("name")
+    )
     display_row["linkedin_search_person"] = linkedin_search_person(display_row)
     return display_row
 
@@ -161,7 +163,7 @@ def run_pipeline_thread(days, lead_type, min_size):
     try:
         run_pipeline(days=days, lead_type=lead_type, min_size=min_size, output_file=LEADS_FILE, logger=log_writer)
         build_research_backlog(LEADS_FILE, BACKLOG_FILE, date.today())
-        log_writer("Research backlog refreshed for the dashboard.")
+        log_writer("Inclusive VC research universe refreshed for the dashboard.")
         log_writer("\n🎉 PIPELINE SUCCESSFUL! Ready to review.")
     except Exception as e:
         log_writer(f"\n❌ PIPELINE ERROR: {e}")
@@ -202,24 +204,34 @@ def get_leads():
 
 @app.route("/api/backlog", methods=["GET"])
 def get_research_backlog():
-    """Read the review backlog so it can be browsed directly in the dashboard."""
+    """Return deduplicated VC firms and retained unresolved VC filings."""
     if not os.path.exists(BACKLOG_FILE):
-        return jsonify({"rows": [], "total": 0, "counts": {}})
+        return jsonify({"rows": [], "total": 0, "counts": {}, "unresolved_rows": [], "unresolved_total": 0})
 
     rows = []
+    unresolved_rows = []
     counts = {}
     try:
         with open(BACKLOG_FILE, "r", encoding="utf-8") as f:
             reader = csv.DictReader(f)
             for index, row in enumerate(reader):
                 prepared = prepare_backlog_for_display(row, index)
-                rows.append(prepared)
-                bucket = str(prepared.get("backlog_bucket") or "unknown")
-                counts[bucket] = counts.get(bucket, 0) + 1
+                if prepared.get("record_type") == "unresolved_vc_filing":
+                    unresolved_rows.append(prepared)
+                else:
+                    rows.append(prepared)
+                    bucket = str(prepared.get("backlog_bucket") or "unknown")
+                    counts[bucket] = counts.get(bucket, 0) + 1
     except Exception as e:
         return jsonify({"error": f"Failed to read research backlog: {e}"}), 500
 
-    return jsonify({"rows": rows, "total": len(rows), "counts": counts})
+    return jsonify({
+        "rows": rows,
+        "total": len(rows),
+        "counts": counts,
+        "unresolved_rows": unresolved_rows,
+        "unresolved_total": len(unresolved_rows),
+    })
 
 
 @app.route("/api/stats", methods=["GET"])

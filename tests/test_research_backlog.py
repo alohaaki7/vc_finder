@@ -1,6 +1,10 @@
 import unittest
 
-from build_research_backlog import is_vc_backlog_candidate
+from build_research_backlog import (
+    bucket_for,
+    is_vc_backlog_candidate,
+    operating_firm_candidate,
+)
 
 
 class ResearchBacklogTests(unittest.TestCase):
@@ -49,6 +53,36 @@ class ResearchBacklogTests(unittest.TestCase):
         }
 
         self.assertFalse(is_vc_backlog_candidate(row, "existing manager"))
+
+    def test_series_parent_vc_manager_is_recovered_instead_of_skipped(self):
+        row = {
+            "firm_name": "DI-0702",
+            "name": "DI-0702 Fund I, a series of Syntax Ventures, LP",
+            "issues": "Pooled Investment Fund - Venture Capital Fund",
+        }
+
+        self.assertEqual(operating_firm_candidate(row), "Syntax Ventures")
+        self.assertTrue(is_vc_backlog_candidate(row))
+
+    def test_explicit_non_vc_category_beats_a_vague_venture_name(self):
+        row = {
+            "firm_name": "Harbor Real Estate Ventures",
+            "name": "Harbor Real Estate Ventures Fund I, LP",
+            "issues": "Pooled Investment Fund - Other Real Estate Fund",
+        }
+
+        self.assertFalse(is_vc_backlog_candidate(row))
+
+    def test_follow_on_name_stays_visible_but_moves_to_watchlist(self):
+        row = {
+            "firm_name": "Craft Ventures V",
+            "name": "Craft Ventures V, LP",
+            "issues": "Pooled Investment Fund - Venture Capital Fund",
+            "fund_stage": "Emerging Fund",
+            "manager_status_code": "likely_new",
+        }
+
+        self.assertEqual(bucket_for(row, "explicit_sec_vc"), "established_manager_watchlist")
 
 
 if __name__ == "__main__":
