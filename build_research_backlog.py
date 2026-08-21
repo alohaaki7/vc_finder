@@ -3,6 +3,7 @@
 
 import argparse
 import csv
+import re
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import quote_plus
@@ -42,6 +43,25 @@ BACKLOG_FIELDS = [
     "linkedin_company_search_url",
     "website_search_url",
 ]
+
+
+# The backlog is a VC research queue, not a dump of every pooled SEC vehicle.
+# A generic Fund I label or a first filer is not enough to put a row here.
+VC_NAME_SIGNAL_PATTERN = re.compile(
+    r"\b(venture|ventures|vc|seed|pre[- ]seed|startup|startups)\b",
+    re.IGNORECASE,
+)
+VEHICLE_PATTERN = re.compile(
+    r"\b(?:spv|spvs|series|feeder|syndicate|co-?invest(?:ment)?|"
+    r"continuation|project)\b",
+    re.IGNORECASE,
+)
+NON_VC_PATTERN = re.compile(
+    r"\b(private\s+equity|real\s+estate|reits?|eb[- ]?5|mortgage|"
+    r"credit|debt|income|lending|oil|gas|restaurants?|agriculture|"
+    r"health\s+care|banking|financial\s+services)\b",
+    re.IGNORECASE,
+)
 
 
 def search_url(base, query):
@@ -86,6 +106,25 @@ def recommendation(row, reason):
     return "Research operating firm, decision-maker, launch evidence, and public presence before rejecting."
 
 
+def is_vc_backlog_candidate(row, reason):
+    """Keep only rows with an actual VC signal and no obvious vehicle/non-VC marker."""
+    issuer_text = f"{row.get('firm_name', '')} {row.get('name', '')}"
+    evidence_text = f"{issuer_text} {row.get('issues', '')}"
+    if VEHICLE_PATTERN.search(issuer_text) or NON_VC_PATTERN.search(evidence_text):
+        return False
+
+    issues = str(row.get("issues") or "").casefold()
+    explicit_vc = "venture capital fund" in issues
+    if reason == "no explicit VC category or strong pooled-fund VC name signal":
+        return bool(VC_NAME_SIGNAL_PATTERN.search(issuer_text))
+    if reason in {
+        "existing manager",
+        "issuer formed outside the broad emerging-manager window",
+    }:
+        return explicit_vc
+    return explicit_vc or bool(VC_NAME_SIGNAL_PATTERN.search(issuer_text))
+
+
 def build(source, destination, today):
     with Path(source).open(newline="", encoding="utf-8-sig") as handle:
         rows = list(csv.DictReader(handle))
@@ -94,7 +133,7 @@ def build(source, destination, today):
     for row in rows:
         strict_ok, strict_reason = volume_eligibility(row, today=today, include_watchlist=False)
         broad_ok, _ = volume_eligibility(row, today=today, include_watchlist=True)
-        if strict_ok or not broad_ok:
+        if strict_ok or not broad_ok or not is_vc_backlog_candidate(row, strict_reason):
             continue
         firm = extract_series_manager_name(row.get("name")) or row.get("firm_name") or row.get("name") or ""
         key = (normalize_identity(firm), normalize_identity(f"{row.get('city', '')} {row.get('state', '')}"))
