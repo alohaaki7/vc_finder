@@ -253,7 +253,46 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
             margin-bottom: 1.5rem;
+        }
+
+        .panel-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .view-switcher {
+            display: inline-flex;
+            padding: 0.2rem;
+            gap: 0.2rem;
+            border: 1px solid var(--border-glass);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.025);
+        }
+
+        .view-switcher button {
+            border: 0;
+            border-radius: 7px;
+            padding: 0.42rem 0.7rem;
+            color: var(--text-muted);
+            background: transparent;
+            font-size: 0.78rem;
+            cursor: pointer;
+        }
+
+        .view-switcher button.active {
+            color: var(--accent-neon);
+            background: rgba(0, 229, 255, 0.1);
+        }
+
+        .view-count {
+            color: inherit;
+            opacity: 0.8;
+            margin-left: 0.2rem;
         }
 
         .panel-title {
@@ -818,10 +857,16 @@
             <!-- Left Panel: Table -->
             <div class="panel">
                 <div class="panel-header">
-                    <h2 class="panel-title">Newest VC Firm Candidates</h2>
-                    <a href="/api/leads" download="ALL_VC_LEADS.csv" class="btn-action" style="padding: 0.4rem 0.8rem; border-radius: 8px;">
+                    <h2 class="panel-title" id="panel-title">Newest VC Firm Candidates</h2>
+                    <div class="panel-header-actions">
+                        <div class="view-switcher" role="tablist" aria-label="Lead dataset">
+                            <button type="button" id="view-master" class="active" role="tab" aria-selected="true" onclick="setDataset('master')">Master leads</button>
+                            <button type="button" id="view-backlog" role="tab" aria-selected="false" onclick="setDataset('backlog')">Research backlog <span class="view-count" id="backlog-count">0</span></button>
+                        </div>
+                        <a href="/api/leads" download="ALL_VC_LEADS.csv" id="download-link" class="btn-action" style="padding: 0.4rem 0.8rem; border-radius: 8px;">
                         📥 Download Master CSV
-                    </a>
+                        </a>
+                    </div>
                 </div>
 
                 <!-- Filters & Search -->
@@ -830,7 +875,7 @@
                         <span class="search-icon">🔍</span>
                         <input type="text" id="search-input" class="search-input" placeholder="Search firm, contact, signal..." oninput="filterData()">
                     </div>
-                    <div class="filter-tags">
+                    <div class="filter-tags" id="filter-tags">
                         <button class="filter-tag active" data-filter-group="run" onclick="setRunFilter('all', this)">All Runs</button>
                         <button class="filter-tag" data-filter-group="run" onclick="setRunFilter('new', this)">New This Run</button>
                         <button class="filter-tag active" id="manager-filter-all" data-filter-group="manager" onclick="setManagerFilter('all', this)">All Manager States</button>
@@ -846,7 +891,7 @@
                 <!-- Table -->
                 <div class="table-container">
                     <table id="leads-table">
-                        <thead>
+                        <thead id="table-head">
                             <tr>
                                 <th onclick="sortLeads('firm_name')">Firm Name</th>
                                 <th onclick="sortLeads('manager_novelty_score')">Manager Verdict</th>
@@ -873,7 +918,7 @@
                 <!-- Lead details panel (Drawer) -->
                 <div class="panel detail-pane" id="detail-panel">
                     <div class="detail-header">
-                        <p class="detail-kicker">Lead profile</p>
+                        <p class="detail-kicker" id="detail-kicker">Lead profile</p>
                         <h3 class="detail-name" id="det-firm">Volo Ventures</h3>
                         <p class="detail-subtitle" id="det-name">Volo Ventures Fund II, LP</p>
                         <div class="detail-status-line">
@@ -973,8 +1018,11 @@
 
     <script>
         let allLeads = [];
+        let allBacklog = [];
         let filteredLeads = [];
         let selectedLeadCrd = null;
+        let activeDataset = 'master';
+        let backlogFilter = 'all';
         
         let runFilter = 'all';
         let managerFilter = 'all';
@@ -986,6 +1034,7 @@
         document.addEventListener("DOMContentLoaded", () => {
             fetchStats();
             fetchLeads();
+            fetchBacklog();
             checkRunnerStatus();
         });
 
@@ -1017,6 +1066,96 @@
             } catch (e) {
                 console.error("Error fetching leads:", e);
             }
+        }
+
+        async function fetchBacklog() {
+            try {
+                const r = await fetch('/api/backlog?_t=' + Date.now());
+                const payload = await r.json();
+                allBacklog = Array.isArray(payload) ? payload : (payload.rows || []);
+                document.getElementById('backlog-count').textContent = allBacklog.length;
+                if (activeDataset === 'backlog') filterData();
+            } catch (e) {
+                console.error("Error fetching research backlog:", e);
+            }
+        }
+
+        function setDataset(dataset) {
+            activeDataset = dataset;
+            selectedLeadCrd = null;
+            sortKey = dataset === 'backlog' ? 'backlog_priority' : 'filing_date';
+            sortAsc = dataset === 'backlog';
+            document.getElementById('view-master').classList.toggle('active', dataset === 'master');
+            document.getElementById('view-backlog').classList.toggle('active', dataset === 'backlog');
+            document.getElementById('view-master').setAttribute('aria-selected', String(dataset === 'master'));
+            document.getElementById('view-backlog').setAttribute('aria-selected', String(dataset === 'backlog'));
+            document.getElementById('panel-title').textContent = dataset === 'backlog'
+                ? 'Research backlog — candidates set aside for verification'
+                : 'Newest VC Firm Candidates';
+            const download = document.getElementById('download-link');
+            if (dataset === 'master') {
+                download.href = '/api/leads';
+                download.setAttribute('download', 'ALL_VC_LEADS.csv');
+                download.textContent = '📥 Download Master CSV';
+                download.onclick = null;
+            } else {
+                download.href = '#';
+                download.removeAttribute('download');
+                download.textContent = '↻ Refresh backlog';
+                download.onclick = () => { fetchBacklog(); return false; };
+            }
+            renderFilterControls();
+            renderTableHead();
+            filterData();
+        }
+
+        function renderFilterControls() {
+            const tags = document.getElementById('filter-tags');
+            if (activeDataset === 'backlog') {
+                tags.innerHTML = `
+                    <button class="filter-tag active" data-filter-group="backlog" onclick="setBacklogFilter('all', this)">All backlog</button>
+                    <button class="filter-tag" data-filter-group="backlog" onclick="setBacklogFilter('1', this)">Priority 1</button>
+                    <button class="filter-tag" data-filter-group="backlog" onclick="setBacklogFilter('2', this)">Priority 2</button>
+                    <button class="filter-tag" data-filter-group="backlog" onclick="setBacklogFilter('ambiguous_vc_signal', this)">Ambiguous VC signal</button>
+                    <button class="filter-tag" data-filter-group="backlog" onclick="setBacklogFilter('established_manager_watchlist', this)">Established manager watchlist</button>
+                    <button class="filter-tag" data-filter-group="backlog" onclick="setBacklogFilter('older_issuer_review', this)">Older issuer review</button>
+                `;
+            } else {
+                tags.innerHTML = `
+                    <button class="filter-tag active" data-filter-group="run" onclick="setRunFilter('all', this)">All Runs</button>
+                    <button class="filter-tag" data-filter-group="run" onclick="setRunFilter('new', this)">New This Run</button>
+                    <button class="filter-tag active" id="manager-filter-all" data-filter-group="manager" onclick="setManagerFilter('all', this)">All Manager States</button>
+                    <button class="filter-tag" id="manager-filter-likely" data-filter-group="manager" onclick="setManagerFilter('likely_new', this)">Likely New Firms</button>
+                    <button class="filter-tag" data-filter-group="manager" onclick="setManagerFilter('existing_manager', this)">Existing Managers</button>
+                    <button class="filter-tag" data-filter-group="manager" onclick="setManagerFilter('needs_review', this)">Needs Review</button>
+                    <button class="filter-tag active" data-filter-group="stage" onclick="setStageFilter('all', this)">All Stages</button>
+                    <button class="filter-tag" data-filter-group="stage" onclick="setStageFilter('Fund I', this)">Fund I</button>
+                    <button class="filter-tag" data-filter-group="stage" onclick="setStageFilter('Fund II', this)">Fund II</button>
+                `;
+            }
+        }
+
+        function renderTableHead() {
+            const head = document.getElementById('table-head');
+            head.innerHTML = activeDataset === 'backlog' ? `
+                <tr>
+                    <th onclick="sortLeads('firm_name')">Firm / filing name</th>
+                    <th onclick="sortLeads('backlog_priority')">Priority</th>
+                    <th onclick="sortLeads('backlog_bucket')">Backlog bucket</th>
+                    <th onclick="sortLeads('contact_name')">SEC contact</th>
+                    <th onclick="sortLeads('amount_sold')">Amount sold</th>
+                    <th onclick="sortLeads('filing_date')">Filing date</th>
+                    <th>Next step</th>
+                </tr>` : `
+                <tr>
+                    <th onclick="sortLeads('firm_name')">Firm Name</th>
+                    <th onclick="sortLeads('manager_novelty_score')">Manager Verdict</th>
+                    <th onclick="sortLeads('freshness_score')">Freshness</th>
+                    <th onclick="sortLeads('fund_stage')">Stage</th>
+                    <th onclick="sortLeads('city')">Location</th>
+                    <th onclick="sortLeads('date_of_first_sale')">First Sale</th>
+                    <th onclick="sortLeads('filing_date')">Filing Date</th>
+                </tr>`;
         }
 
         // 2. Sorting & Filtering
@@ -1060,19 +1199,36 @@
             filterData();
         }
 
+        function setBacklogFilter(val, el) {
+            backlogFilter = activateFilterButton('backlog', el, val);
+            filterData();
+        }
+
         function filterData() {
             const query = document.getElementById('search-input').value.toLowerCase().trim();
+            const source = activeDataset === 'backlog' ? allBacklog : allLeads;
             
-            filteredLeads = allLeads.filter(lead => {
+            filteredLeads = source.filter(lead => {
                 // Search query matching
                 const matchesSearch = 
                     (lead.firm_name || '').toLowerCase().includes(query) ||
                     (lead.name || '').toLowerCase().includes(query) ||
                     (lead.contact_name || '').toLowerCase().includes(query) ||
+                    (lead.all_contacts || '').toLowerCase().includes(query) ||
                     (lead.signal_type || '').toLowerCase().includes(query) ||
                     (lead.freshness_reason || '').toLowerCase().includes(query) ||
                     (lead.manager_history_reason || '').toLowerCase().includes(query) ||
-                    (lead.manager_matched_identity || '').toLowerCase().includes(query);
+                    (lead.manager_matched_identity || '').toLowerCase().includes(query) ||
+                    (lead.backlog_bucket || '').toLowerCase().includes(query) ||
+                    (lead.strict_drop_reason || '').toLowerCase().includes(query) ||
+                    (lead.research_recommendation || '').toLowerCase().includes(query);
+
+                if (activeDataset === 'backlog') {
+                    const matchesBacklog = backlogFilter === 'all'
+                        || String(lead.backlog_priority || '') === backlogFilter
+                        || String(lead.backlog_bucket || '') === backlogFilter;
+                    return matchesSearch && matchesBacklog;
+                }
 
                 const matchesManager = managerFilter === 'all' || managerStatusCode(lead) === managerFilter;
 
@@ -1123,19 +1279,48 @@
         }
 
         // 3. Renderer Table
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>'"]/g, char => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+            }[char]));
+        }
+
         function renderTable() {
             const tbody = document.getElementById('table-body');
             tbody.innerHTML = '';
 
             if (filteredLeads.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 3rem; color: var(--text-muted);">No leads found matching filters.</td></tr>`;
+                const message = activeDataset === 'backlog'
+                    ? 'No backlog rows found matching these filters.'
+                    : 'No leads found matching filters.';
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 3rem; color: var(--text-muted);">${message}</td></tr>`;
                 return;
             }
 
             filteredLeads.forEach(lead => {
                 const tr = document.createElement('tr');
-                if (lead.crd === selectedLeadCrd) {
+                const rowId = activeDataset === 'backlog' ? lead.backlog_id : lead.crd;
+                if (rowId === selectedLeadCrd) {
                     tr.classList.add('selected');
+                }
+
+                if (activeDataset === 'backlog') {
+                    const priority = String(lead.backlog_priority || '—');
+                    const priorityClass = priority === '1' ? 'badge-first' : (priority === '2' ? 'badge-new' : 'badge-estab');
+                    const bucket = String(lead.backlog_bucket || 'unknown').replaceAll('_', ' ');
+                    const contact = lead.contact_name || 'Not named';
+                    tr.innerHTML = `
+                        <td style="font-weight: 600;">${escapeHtml(lead.firm_name || lead.name || 'Unnamed filing')}</td>
+                        <td><span class="badge ${priorityClass}">P${escapeHtml(priority)}</span></td>
+                        <td style="text-transform: capitalize;">${escapeHtml(bucket)}</td>
+                        <td>${escapeHtml(contact)}</td>
+                        <td>${escapeHtml(lead.amount_sold || 'Not disclosed')}</td>
+                        <td>${escapeHtml(lead.filing_date || '—')}</td>
+                        <td style="color: var(--accent-neon);">Review →</td>
+                    `;
+                    tr.onclick = () => selectLead(lead, tr);
+                    tbody.appendChild(tr);
+                    return;
                 }
 
                 const managerCode = managerStatusCode(lead);
@@ -1156,13 +1341,13 @@
                 const newBadge = isNewLead(lead) ? `<span class="badge badge-first" style="margin-left: 0.45rem;">New</span>` : '';
 
                 tr.innerHTML = `
-                    <td style="font-weight: 600;">${lead.firm_name}${newBadge}</td>
+                    <td style="font-weight: 600;">${escapeHtml(lead.firm_name)}${newBadge}</td>
                     <td>${managerBadge}</td>
                     <td>${scoreBadge}</td>
-                    <td>${lead.fund_stage}</td>
-                    <td style="font-weight: 500;">${(lead.city && lead.state) ? `${lead.city}, ${lead.state}` : (lead.city || lead.state || lead.country || '-')}</td>
-                    <td>${firstSaleDisplay}</td>
-                    <td>${lead.filing_date}</td>
+                    <td>${escapeHtml(lead.fund_stage)}</td>
+                    <td style="font-weight: 500;">${escapeHtml((lead.city && lead.state) ? `${lead.city}, ${lead.state}` : (lead.city || lead.state || lead.country || '-'))}</td>
+                    <td>${escapeHtml(firstSaleDisplay)}</td>
+                    <td>${escapeHtml(lead.filing_date)}</td>
                 `;
 
                 tr.onclick = () => selectLead(lead, tr);
@@ -1214,15 +1399,21 @@
         function selectLead(lead, rowEl) {
             document.querySelectorAll('tr').forEach(r => r.classList.remove('selected'));
             rowEl.classList.add('selected');
-            selectedLeadCrd = lead.crd;
+            const isBacklog = activeDataset === 'backlog';
+            selectedLeadCrd = isBacklog ? lead.backlog_id : lead.crd;
 
             document.getElementById('detail-placeholder').style.display = 'none';
             document.getElementById('detail-panel').classList.add('active');
 
-            document.getElementById('det-firm').textContent = lead.firm_name;
-            document.getElementById('det-name').textContent = lead.name;
-            document.getElementById('det-manager-status').textContent = lead.manager_status || 'Not checked';
-            document.getElementById('det-lead-status').textContent = (lead.lead_status || 'discovered').replaceAll('_', ' ');
+            document.getElementById('detail-kicker').textContent = isBacklog ? 'Research backlog row' : 'Lead profile';
+            document.getElementById('det-firm').textContent = lead.firm_name || 'Unnamed filing';
+            document.getElementById('det-name').textContent = lead.name || 'SEC legal name unavailable';
+            document.getElementById('det-manager-status').textContent = isBacklog
+                ? `Priority ${lead.backlog_priority || '—'}`
+                : (lead.manager_status || 'Not checked');
+            document.getElementById('det-lead-status').textContent = isBacklog
+                ? String(lead.backlog_bucket || 'research pending').replaceAll('_', ' ')
+                : (lead.lead_status || 'discovered').replaceAll('_', ' ');
             document.getElementById('det-filing-date').textContent = lead.filing_date || 'N/A';
             document.getElementById('det-first-sale').textContent = lead.date_of_first_sale || 'Yet to occur';
             document.getElementById('det-fund-size').textContent = lead.fund_size || 'Not disclosed';
@@ -1233,40 +1424,49 @@
             document.getElementById('det-contact').textContent = contactName
                 ? `${contactName}${contactTitle ? ` — ${contactTitle}` : ''}`
                 : 'No human SEC contact identified';
-            document.getElementById('det-contact-status').textContent = contactName
-                ? `SEC contact only. Manager identity: ${(lead.contact_verification_status || 'unverified').replaceAll('_', ' ')}.`
-                : 'Founder, GP, or managing partner still needs research.';
+            document.getElementById('det-contact-status').textContent = isBacklog
+                ? (lead.research_recommendation || 'Operating firm, decision-maker, launch evidence, and public presence still need review.')
+                : (contactName
+                    ? `SEC contact only. Manager identity: ${(lead.contact_verification_status || 'unverified').replaceAll('_', ' ')}.`
+                    : 'Founder, GP, or managing partner still needs research.');
 
             const contacts = lead.all_contacts ? lead.all_contacts.replace(/; /g, '\n') : 'None disclosed';
             document.getElementById('det-related-people').textContent = contacts;
 
-            document.getElementById('det-domain').textContent = lead.domain || 'Website not verified';
-            document.getElementById('det-website-status').textContent = lead.website_status_reason
-                || `Website status: ${(lead.website_status || 'unknown').replaceAll('_', ' ')}`;
-            document.getElementById('det-opportunity').textContent = lead.service_opportunity
-                || `Suggested route: ${(lead.offer_route || 'presence check').replaceAll('_', ' ')}`;
-            document.getElementById('det-freshness').textContent = lead.freshness_reason
-                || lead.manager_history_reason
-                || lead.signal_type
-                || 'Freshness evidence not recorded.';
-            document.getElementById('det-evidence').textContent = lead.evidence_sources
-                ? `Evidence: ${lead.evidence_sources}`
-                : 'SEC filing is the only recorded source so far.';
+            document.getElementById('det-domain').textContent = isBacklog
+                ? 'Website not audited yet'
+                : (lead.domain || 'Website not verified');
+            document.getElementById('det-website-status').textContent = isBacklog
+                ? 'This row was set aside for human/public research; no website conclusion has been made.'
+                : (lead.website_status_reason || `Website status: ${(lead.website_status || 'unknown').replaceAll('_', ' ')}`);
+            document.getElementById('det-opportunity').textContent = isBacklog
+                ? `Strict filter reason: ${lead.strict_drop_reason || 'Not recorded'}`
+                : (lead.service_opportunity || `Suggested route: ${(lead.offer_route || 'presence check').replaceAll('_', ' ')}`);
+            document.getElementById('det-freshness').textContent = isBacklog
+                ? (lead.research_recommendation || 'Research the operating firm, decision-maker, launch evidence, and public presence.')
+                : (lead.freshness_reason || lead.manager_history_reason || lead.signal_type || 'Freshness evidence not recorded.');
+            document.getElementById('det-evidence').textContent = isBacklog
+                ? `SEC filing: ${lead.filing_url || 'not recorded'}${lead.issues ? ` | SEC category: ${lead.issues}` : ''}`
+                : (lead.evidence_sources ? `Evidence: ${lead.evidence_sources}` : 'SEC filing is the only recorded source so far.');
 
-            const personExact = validExternalUrl(lead.linkedin_person);
-            const companyExact = validExternalUrl(lead.linkedin_company);
+            const personExact = isBacklog ? '' : validExternalUrl(lead.linkedin_person);
+            const companyExact = isBacklog ? '' : validExternalUrl(lead.linkedin_company);
             const searchFirm = String(lead.linkedin_search_firm || lead.firm_name || '').trim();
             const secPerson = String(lead.linkedin_search_person || '').trim();
             const managerCandidate = String(lead.linkedin_manager_candidate || '').trim();
             const personQuery = managerCandidate
                 ? `${managerCandidate} ${searchFirm}`
                 : `${searchFirm} founder "general partner" "managing partner"`;
-            const personSearch = linkedinSearchUrl('people', personQuery);
-            const companySearch = linkedinSearchUrl('companies', searchFirm);
+            const personSearch = isBacklog
+                ? (validExternalUrl(lead.linkedin_search_url) || linkedinSearchUrl('people', personQuery))
+                : linkedinSearchUrl('people', personQuery);
+            const companySearch = isBacklog
+                ? (validExternalUrl(lead.linkedin_company_search_url) || linkedinSearchUrl('companies', searchFirm))
+                : linkedinSearchUrl('companies', searchFirm);
             configureLeadAction(
                 'link-linkedin-person',
                 personExact || personSearch,
-                personExact ? 'Open verified manager LinkedIn' : 'Search decision-makers on LinkedIn',
+                personExact ? 'Open verified manager LinkedIn' : (isBacklog ? 'Search SEC contact on LinkedIn' : 'Search decision-makers on LinkedIn'),
                 !personExact,
             );
             configureLeadAction(
@@ -1277,20 +1477,21 @@
             );
             configureLeadAction(
                 'link-linkedin-google',
-                googleLinkedinSearchUrl(managerCandidate, searchFirm),
-                managerCandidate ? 'Find verified manager via Google' : 'Find decision-makers via Google',
+                isBacklog ? (validExternalUrl(lead.website_search_url) || googleLinkedinSearchUrl(managerCandidate, searchFirm)) : googleLinkedinSearchUrl(managerCandidate, searchFirm),
+                isBacklog ? 'Search firm / website via Google' : (managerCandidate ? 'Find verified manager via Google' : 'Find decision-makers via Google'),
                 true,
             );
             configureLeadAction(
                 'link-linkedin-sec-person',
                 secPerson ? linkedinSearchUrl('people', secPerson) : '',
-                secPerson ? `Check SEC person: ${secPerson}` : 'No human SEC person',
+                secPerson ? `Search SEC person: ${secPerson}` : 'No human SEC person',
                 true,
             );
             configureLeadAction(
                 'link-website',
-                validExternalUrl(lead.domain),
-                lead.domain ? 'Open website' : 'Website not verified',
+                isBacklog ? validExternalUrl(lead.website_search_url) : validExternalUrl(lead.domain),
+                isBacklog ? 'Search for website' : (lead.domain ? 'Open website' : 'Website not verified'),
+                isBacklog,
             );
             configureLeadAction('link-sec', validExternalUrl(lead.filing_url), 'SEC filing');
         }

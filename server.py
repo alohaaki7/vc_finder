@@ -10,8 +10,10 @@ import csv
 import json
 import re
 import threading
+from datetime import date
 from flask import Flask, jsonify, request, send_from_directory, render_template_string
 from pipeline import clean_firm_name, extract_related_name, is_entity_identity, run_pipeline
+from build_research_backlog import build as build_research_backlog
 
 app = Flask(__name__, static_folder="templates")
 
@@ -23,6 +25,7 @@ def add_header(response):
     return response
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 LEADS_FILE = os.path.join(SCRIPT_DIR, "ALL_VC_LEADS.csv")
+BACKLOG_FILE = os.path.join(SCRIPT_DIR, "ALAMAT_RESEARCH_BACKLOG.csv")
 LOGS_FILE = os.path.join(SCRIPT_DIR, "pipeline_run.log")
 
 # Lock and state for running pipeline
@@ -53,6 +56,19 @@ def prepare_lead_for_display(row):
     display_row["linkedin_search_firm"] = linkedin_search_firm(display_row.get("firm_name"))
     display_row["linkedin_search_person"] = linkedin_search_person(display_row)
     display_row["linkedin_manager_candidate"] = linkedin_manager_candidate(display_row)
+    return display_row
+
+
+def prepare_backlog_for_display(row, index=0):
+    """Add stable browser-only metadata to a research-backlog row.
+
+    Backlog rows are deliberately still unverified.  The URLs in this view are
+    search routes, not assertions that a person or company identity is correct.
+    """
+    display_row = dict(row)
+    display_row["backlog_id"] = f"backlog-{index}"
+    display_row["linkedin_search_firm"] = linkedin_search_firm(display_row.get("firm_name"))
+    display_row["linkedin_search_person"] = linkedin_search_person(display_row)
     return display_row
 
 
@@ -144,6 +160,8 @@ def run_pipeline_thread(days, lead_type, min_size):
 
     try:
         run_pipeline(days=days, lead_type=lead_type, min_size=min_size, output_file=LEADS_FILE, logger=log_writer)
+        build_research_backlog(LEADS_FILE, BACKLOG_FILE, date.today())
+        log_writer("Research backlog refreshed for the dashboard.")
         log_writer("\n🎉 PIPELINE SUCCESSFUL! Ready to review.")
     except Exception as e:
         log_writer(f"\n❌ PIPELINE ERROR: {e}")
@@ -180,6 +198,28 @@ def get_leads():
         return jsonify({"error": f"Failed to read CSV: {e}"}), 500
 
     return jsonify(leads)
+
+
+@app.route("/api/backlog", methods=["GET"])
+def get_research_backlog():
+    """Read the review backlog so it can be browsed directly in the dashboard."""
+    if not os.path.exists(BACKLOG_FILE):
+        return jsonify({"rows": [], "total": 0, "counts": {}})
+
+    rows = []
+    counts = {}
+    try:
+        with open(BACKLOG_FILE, "r", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for index, row in enumerate(reader):
+                prepared = prepare_backlog_for_display(row, index)
+                rows.append(prepared)
+                bucket = str(prepared.get("backlog_bucket") or "unknown")
+                counts[bucket] = counts.get(bucket, 0) + 1
+    except Exception as e:
+        return jsonify({"error": f"Failed to read research backlog: {e}"}), 500
+
+    return jsonify({"rows": rows, "total": len(rows), "counts": counts})
 
 
 @app.route("/api/stats", methods=["GET"])

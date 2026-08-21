@@ -4,6 +4,7 @@ from server import (
     linkedin_manager_candidate,
     linkedin_search_firm,
     linkedin_search_person,
+    prepare_backlog_for_display,
     prepare_lead_for_display,
 )
 
@@ -31,6 +32,19 @@ class ServerDisplayTests(unittest.TestCase):
 
         self.assertEqual(displayed["firm_name"], "1616 Ventures")
         self.assertEqual(displayed["linkedin_search_firm"], "1616 Ventures")
+
+    def test_backlog_rows_get_stable_browser_id_without_claiming_verification(self):
+        row = {
+            "firm_name": "FH Structured Solutions",
+            "contact_name": "BRIAN MORFITT",
+            "linkedin_search_url": "https://www.linkedin.com/search/results/people/?keywords=Brian",
+        }
+
+        displayed = prepare_backlog_for_display(row, 7)
+
+        self.assertEqual(displayed["backlog_id"], "backlog-7")
+        self.assertEqual(displayed["linkedin_search_person"], "Brian Morfitt")
+        self.assertNotIn("linkedin_person", displayed)
 
     def test_linkedin_firm_search_removes_vehicle_noise(self):
         self.assertEqual(linkedin_search_firm("Axel Ventures Fund LLC - Series 4"), "Axel Ventures")

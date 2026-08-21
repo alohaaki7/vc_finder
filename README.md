@@ -32,6 +32,12 @@ python server.py
 
 Open `http://localhost:5001`.
 
+The dashboard has two browser views: `Master leads` for the curated pipeline and
+`Research backlog` for candidates intentionally set aside for public/LinkedIn
+verification. The backlog view is searchable and filterable; it does not mark
+SEC names as verified firms or people. Running the pipeline refreshes the
+backlog data automatically.
+
 ## Pipeline CLI
 
 ```bash
