@@ -105,6 +105,12 @@
             backdrop-filter: blur(10px);
         }
 
+        .pipeline-mobile-toggle,
+        .detail-close,
+        .mobile-list {
+            display: none;
+        }
+
         .controller-group {
             display: flex;
             align-items: center;
@@ -371,6 +377,13 @@
             color: var(--accent-neon);
         }
 
+        .results-summary {
+            width: 100%;
+            color: var(--text-muted);
+            font-size: 0.76rem;
+            font-variant-numeric: tabular-nums;
+        }
+
         /* Table Design */
         .table-container {
             overflow-x: auto;
@@ -420,6 +433,97 @@
         tr.selected td {
             background: rgba(0, 112, 243, 0.08);
             border-bottom-color: rgba(0, 112, 243, 0.3);
+        }
+
+        .mobile-lead-card {
+            border: 1px solid var(--border-glass);
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.025);
+            color: var(--text-main);
+            text-align: left;
+        }
+
+        .mobile-lead-card.selected {
+            border-color: rgba(0, 229, 255, 0.5);
+            background: rgba(0, 229, 255, 0.055);
+        }
+
+        .mobile-card-button {
+            width: 100%;
+            min-height: 44px;
+            padding: 0;
+            border: 0;
+            background: transparent;
+            color: inherit;
+            text-align: inherit;
+            cursor: pointer;
+        }
+
+        .mobile-card-button:focus-visible,
+        .pipeline-mobile-toggle:focus-visible,
+        .detail-close:focus-visible {
+            outline: 2px solid var(--accent-neon);
+            outline-offset: 2px;
+        }
+
+        .mobile-card-button:active,
+        .pipeline-mobile-toggle:active,
+        .detail-close:active {
+            transform: scale(0.98);
+        }
+
+        .mobile-card-body {
+            display: grid;
+            gap: 0.75rem;
+            padding: 1rem;
+        }
+
+        .mobile-card-top,
+        .mobile-card-bottom {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 0.75rem;
+        }
+
+        .mobile-card-title {
+            min-width: 0;
+            font-family: 'Outfit', sans-serif;
+            font-size: 1rem;
+            font-weight: 600;
+            line-height: 1.3;
+            overflow-wrap: anywhere;
+        }
+
+        .mobile-card-signal {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            line-height: 1.45;
+            overflow-wrap: anywhere;
+        }
+
+        .mobile-card-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem 0.85rem;
+            color: var(--text-muted);
+            font-size: 0.74rem;
+            line-height: 1.4;
+        }
+
+        .mobile-card-review {
+            flex: 0 0 auto;
+            color: var(--accent-neon);
+            font-size: 0.78rem;
+            font-weight: 600;
+        }
+
+        .mobile-empty-state {
+            padding: 2.5rem 1rem;
+            border-top: 1px solid var(--border-glass);
+            color: var(--text-muted);
+            text-align: center;
+            line-height: 1.5;
         }
 
         /* Badges */
@@ -776,10 +880,14 @@
             to { transform: translateX(0); opacity: 1; }
         }
 
-        /* Mobile-first reading and touch targets */
+        /* Phone-first lead browsing and touch targets */
         @media (max-width: 768px) {
             body {
                 background-attachment: scroll;
+            }
+
+            body.mobile-detail-open {
+                overflow: hidden;
             }
 
             .app-container {
@@ -795,6 +903,32 @@
                 padding-bottom: 1rem;
             }
 
+            .pipeline-mobile-toggle {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                width: 100%;
+                min-height: 44px;
+                padding: 0.7rem 0.85rem;
+                border: 1px solid var(--border-glass);
+                border-radius: 12px;
+                background: rgba(255, 255, 255, 0.035);
+                color: var(--text-main);
+                font-weight: 600;
+                cursor: pointer;
+            }
+
+            .pipeline-mobile-toggle::after {
+                content: '+';
+                color: var(--accent-neon);
+                font-size: 1.2rem;
+                line-height: 1;
+            }
+
+            .pipeline-mobile-toggle[aria-expanded="true"]::after {
+                content: '−';
+            }
+
             .header-logo {
                 align-items: flex-start;
             }
@@ -805,10 +939,14 @@
 
             .pipeline-controller {
                 width: 100%;
-                display: grid;
+                display: none;
                 grid-template-columns: repeat(2, minmax(0, 1fr));
                 gap: 0.7rem;
                 padding: 0.8rem;
+            }
+
+            .pipeline-controller.mobile-open {
+                display: grid;
             }
 
             .controller-group {
@@ -834,19 +972,27 @@
             }
 
             .metrics-grid {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
+                display: flex;
                 gap: 0.75rem;
                 margin-bottom: 1rem;
+                margin-inline: -1rem;
+                padding-inline: 1rem;
+                overflow-x: auto;
+                scroll-snap-type: x proximity;
+                scrollbar-width: none;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .metrics-grid::-webkit-scrollbar {
+                display: none;
             }
 
             .metric-card {
-                min-width: 0;
-                padding: 1rem;
+                flex: 0 0 9.4rem;
+                min-width: 9.4rem;
+                padding: 0.85rem 0.85rem 0.95rem;
                 border-radius: 16px;
-            }
-
-            .metric-card:last-child {
-                grid-column: 1 / -1;
+                scroll-snap-align: start;
             }
 
             .metric-title {
@@ -868,8 +1014,12 @@
             }
 
             .panel {
-                padding: 1rem;
+                padding: 0.9rem;
                 border-radius: 18px;
+            }
+
+            .workspace > .panel:first-child {
+                overflow: visible;
             }
 
             .panel-header {
@@ -903,8 +1053,16 @@
             }
 
             .search-filter-bar {
+                position: sticky;
+                top: 0;
+                z-index: 3;
                 gap: 0.75rem;
-                margin-bottom: 1rem;
+                margin: 0 -0.9rem 0.75rem;
+                padding: 0.75rem 0.9rem 0.65rem;
+                background: rgba(12, 13, 19, 0.97);
+                border-top: 1px solid var(--border-glass);
+                border-bottom: 1px solid var(--border-glass);
+                backdrop-filter: blur(12px);
             }
 
             .search-wrapper {
@@ -917,7 +1075,8 @@
             }
 
             .filter-tags {
-                width: calc(100vw - 2rem);
+                width: 100%;
+                max-width: 100%;
                 flex-wrap: nowrap;
                 overflow-x: auto;
                 padding-bottom: 0.25rem;
@@ -930,46 +1089,17 @@
 
             .filter-tag {
                 flex: 0 0 auto;
-                min-height: 40px;
+                min-height: 42px;
                 white-space: nowrap;
             }
 
             .table-container {
-                max-height: 62vh;
-                margin-inline: -1rem;
-                padding-inline: 1rem;
-                overflow: auto;
-                -webkit-overflow-scrolling: touch;
+                display: none;
             }
 
-            table {
-                min-width: 760px;
-            }
-
-            th,
-            td {
-                padding: 0.78rem 0.8rem;
-            }
-
-            th:first-child,
-            td:first-child {
-                position: sticky;
-                left: 0;
-                z-index: 2;
-                background: var(--bg-secondary);
-                box-shadow: 8px 0 12px rgba(5, 6, 10, 0.35);
-            }
-
-            td:first-child {
-                background: var(--bg-primary);
-            }
-
-            tr.selected td:first-child {
-                background: #151b2d;
-            }
-
-            th:first-child {
-                z-index: 4;
+            .mobile-list {
+                display: grid;
+                gap: 0.65rem;
             }
 
             .right-sidebar {
@@ -978,6 +1108,41 @@
 
             .detail-name {
                 font-size: 1.3rem;
+            }
+
+            .detail-pane.active {
+                position: fixed;
+                inset: 0;
+                z-index: 20;
+                width: 100%;
+                max-width: none;
+                min-height: 100dvh;
+                padding: 1rem 1rem calc(1.5rem + env(safe-area-inset-bottom));
+                border: 0;
+                border-radius: 0;
+                background: var(--bg-primary);
+                overflow-y: auto;
+                overscroll-behavior: contain;
+                animation: mobileDetailIn 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+            }
+
+            .detail-close {
+                position: sticky;
+                top: 0;
+                z-index: 1;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 44px;
+                min-height: 44px;
+                margin: 0 0 0.25rem auto;
+                border: 1px solid var(--border-glass);
+                border-radius: 11px;
+                background: var(--bg-secondary);
+                color: var(--text-main);
+                font-size: 1.4rem;
+                line-height: 1;
+                cursor: pointer;
             }
 
             .lead-facts-grid {
@@ -1007,13 +1172,14 @@
             }
         }
 
+        @keyframes mobileDetailIn {
+            from { transform: translateY(18px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
         @media (max-width: 390px) {
             .app-container {
                 padding: 0.75rem;
-            }
-
-            .filter-tags {
-                width: calc(100vw - 1.5rem);
             }
 
             .metric-card {
@@ -1037,8 +1203,12 @@
                     <p style="font-size: 0.75rem; color: var(--text-muted);">SEC EDGAR Fresh Fund Signal Detector</p>
                 </div>
             </div>
-            
-            <div class="pipeline-controller">
+
+            <button type="button" class="pipeline-mobile-toggle" id="pipeline-mobile-toggle" aria-expanded="false" aria-controls="pipeline-controller" onclick="togglePipelineControls()">
+                Pipeline controls
+            </button>
+
+            <div class="pipeline-controller" id="pipeline-controller">
                 <div class="controller-group">
                     <label for="lead-type">Type</label>
                     <select id="lead-type">
@@ -1135,6 +1305,7 @@
                         <button class="filter-tag" data-filter-group="stage" onclick="setStageFilter('Fund I', this)">Fund I</button>
                         <button class="filter-tag" data-filter-group="stage" onclick="setStageFilter('Fund II', this)">Fund II</button>
                     </div>
+                    <p class="results-summary" id="results-count" aria-live="polite">Loading leads...</p>
                 </div>
 
                 <!-- Table -->
@@ -1160,12 +1331,14 @@
                         </tbody>
                     </table>
                 </div>
+                <div class="mobile-list" id="mobile-list" aria-label="Lead results"></div>
             </div>
 
             <!-- Right Sidebar: Details & Logger Console -->
             <div class="right-sidebar">
                 <!-- Lead details panel (Drawer) -->
                 <div class="panel detail-pane" id="detail-panel">
+                    <button type="button" class="detail-close" id="detail-close" aria-label="Close lead details" onclick="closeLeadDetail()">×</button>
                     <div class="detail-header">
                         <p class="detail-kicker" id="detail-kicker">Lead profile</p>
                         <h3 class="detail-name" id="det-firm">Volo Ventures</h3>
@@ -1337,6 +1510,7 @@
         function setDataset(dataset) {
             activeDataset = dataset;
             selectedLeadCrd = null;
+            closeLeadDetail();
             sortKey = dataset === 'backlog' ? 'backlog_priority' : 'filing_date';
             sortAsc = dataset === 'backlog';
             document.getElementById('view-master').classList.toggle('active', dataset === 'master');
@@ -1547,9 +1721,100 @@
             }[char]));
         }
 
+        function leadRowId(lead) {
+            return activeDataset === 'backlog' ? lead.backlog_id : lead.crd;
+        }
+
+        function renderMobileCards() {
+            const mobileList = document.getElementById('mobile-list');
+            mobileList.innerHTML = '';
+
+            if (filteredLeads.length === 0) {
+                const message = activeDataset === 'backlog'
+                    ? 'No VC candidates match this search and filter.'
+                    : 'No leads match this search and filter.';
+                mobileList.innerHTML = `<div class="mobile-empty-state">${message}</div>`;
+                return;
+            }
+
+            filteredLeads.forEach(lead => {
+                const card = document.createElement('article');
+                const rowId = leadRowId(lead);
+                card.className = 'mobile-lead-card lead-selectable';
+                if (rowId === selectedLeadCrd) card.classList.add('selected');
+
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'mobile-card-button';
+
+                if (activeDataset === 'backlog') {
+                    const unresolved = lead.record_type === 'unresolved_vc_filing';
+                    const priority = String(lead.backlog_priority || '—');
+                    const priorityClass = priority === '1' ? 'badge-first' : (priority === '2' ? 'badge-new' : 'badge-estab');
+                    const signalLabel = lead.vc_signal_strength === 'explicit_sec_vc'
+                        ? 'Explicit SEC VC'
+                        : (lead.vc_signal_strength === 'public_vc_signal' ? 'Public VC launch' : 'VC name signal');
+                    const title = unresolved ? (lead.name || 'Unresolved VC filing') : (lead.firm_name || lead.name || 'Unnamed firm');
+                    button.setAttribute('aria-label', `Review ${title}`);
+                    button.innerHTML = `
+                        <span class="mobile-card-body">
+                            <span class="mobile-card-top">
+                                <span class="mobile-card-title">${escapeHtml(title)}</span>
+                                <span class="badge ${priorityClass}">P${escapeHtml(priority)}</span>
+                            </span>
+                            <span class="mobile-card-signal">${escapeHtml(unresolved ? `${signalLabel} — identity unresolved` : signalLabel)}</span>
+                            <span class="mobile-card-meta">
+                                <span>${escapeHtml(lead.contact_name || 'SEC contact not named')}</span>
+                                <span>${escapeHtml(lead.amount_sold || 'Amount not disclosed')}</span>
+                                <span>${escapeHtml(lead.filing_date || 'Date unavailable')}</span>
+                            </span>
+                            <span class="mobile-card-bottom">
+                                <span class="mobile-card-signal">${escapeHtml(String(lead.backlog_bucket || 'research pending').replaceAll('_', ' '))}</span>
+                                <span class="mobile-card-review">Review</span>
+                            </span>
+                        </span>`;
+                } else {
+                    const managerCode = managerStatusCode(lead);
+                    const managerLabel = lead.manager_status || 'Not checked';
+                    const managerBadgeClass = managerCode === 'likely_new'
+                        ? 'badge-first'
+                        : (managerCode === 'existing_manager' ? 'badge-estab' : 'badge-new');
+                    const location = (lead.city && lead.state)
+                        ? `${lead.city}, ${lead.state}`
+                        : (lead.city || lead.state || lead.country || 'Location unavailable');
+                    const title = lead.firm_name || lead.name || 'Unnamed firm';
+                    const score = parseInt(lead.freshness_score || lead.vc_score || lead.site_score) || 0;
+                    button.setAttribute('aria-label', `Review ${title}`);
+                    button.innerHTML = `
+                        <span class="mobile-card-body">
+                            <span class="mobile-card-top">
+                                <span class="mobile-card-title">${escapeHtml(title)}</span>
+                                <span class="badge ${managerBadgeClass}">${escapeHtml(managerLabel)}</span>
+                            </span>
+                            <span class="mobile-card-signal">${escapeHtml(lead.fund_stage || 'Stage needs review')} · Freshness ${score}</span>
+                            <span class="mobile-card-meta">
+                                <span>${escapeHtml(location)}</span>
+                                <span>First sale: ${escapeHtml(lead.date_of_first_sale || 'Yet to occur')}</span>
+                                <span>Filed: ${escapeHtml(lead.filing_date || 'Date unavailable')}</span>
+                            </span>
+                            <span class="mobile-card-bottom">
+                                <span class="mobile-card-signal">${isNewLead(lead) ? 'New this run' : 'Saved in master leads'}</span>
+                                <span class="mobile-card-review">Review</span>
+                            </span>
+                        </span>`;
+                }
+
+                button.onclick = () => selectLead(lead, card);
+                card.appendChild(button);
+                mobileList.appendChild(card);
+            });
+        }
+
         function renderTable() {
             const tbody = document.getElementById('table-body');
             tbody.innerHTML = '';
+            document.getElementById('results-count').textContent = `${filteredLeads.length.toLocaleString()} result${filteredLeads.length === 1 ? '' : 's'}`;
+            renderMobileCards();
 
             if (filteredLeads.length === 0) {
                 const message = activeDataset === 'backlog'
@@ -1561,7 +1826,8 @@
 
             filteredLeads.forEach(lead => {
                 const tr = document.createElement('tr');
-                const rowId = activeDataset === 'backlog' ? lead.backlog_id : lead.crd;
+                const rowId = leadRowId(lead);
+                tr.classList.add('lead-selectable');
                 if (rowId === selectedLeadCrd) {
                     tr.classList.add('selected');
                 }
@@ -1662,13 +1928,17 @@
 
         // 4. Select Lead & Populate Details Panel
         function selectLead(lead, rowEl) {
-            document.querySelectorAll('tr').forEach(r => r.classList.remove('selected'));
+            document.querySelectorAll('.lead-selectable').forEach(r => r.classList.remove('selected'));
             rowEl.classList.add('selected');
             const isBacklog = activeDataset === 'backlog';
             selectedLeadCrd = isBacklog ? lead.backlog_id : lead.crd;
 
             document.getElementById('detail-placeholder').style.display = 'none';
             document.getElementById('detail-panel').classList.add('active');
+            if (window.matchMedia('(max-width: 768px)').matches) {
+                document.body.classList.add('mobile-detail-open');
+                document.getElementById('detail-close').focus({ preventScroll: true });
+            }
 
             const isUnresolvedFiling = isBacklog && lead.record_type === 'unresolved_vc_filing';
             document.getElementById('detail-kicker').textContent = isUnresolvedFiling
@@ -1766,6 +2036,22 @@
                 isBacklog,
             );
             configureLeadAction('link-sec', validExternalUrl(lead.filing_url), 'SEC filing');
+        }
+
+        function closeLeadDetail() {
+            document.getElementById('detail-panel').classList.remove('active');
+            document.body.classList.remove('mobile-detail-open');
+            document.querySelectorAll('.lead-selectable').forEach(row => row.classList.remove('selected'));
+            selectedLeadCrd = null;
+            const placeholder = document.getElementById('detail-placeholder');
+            if (placeholder) placeholder.style.display = '';
+        }
+
+        function togglePipelineControls() {
+            const controller = document.getElementById('pipeline-controller');
+            const toggle = document.getElementById('pipeline-mobile-toggle');
+            const isOpen = controller.classList.toggle('mobile-open');
+            toggle.setAttribute('aria-expanded', String(isOpen));
         }
 
         // Helper String extension
