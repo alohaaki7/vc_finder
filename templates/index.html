@@ -105,6 +105,12 @@
             backdrop-filter: blur(10px);
         }
 
+        .pipeline-mobile-toggle,
+        .detail-close,
+        .mobile-list {
+            display: none;
+        }
+
         .controller-group {
             display: flex;
             align-items: center;
@@ -253,7 +259,46 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
             margin-bottom: 1.5rem;
+        }
+
+        .panel-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .view-switcher {
+            display: inline-flex;
+            padding: 0.2rem;
+            gap: 0.2rem;
+            border: 1px solid var(--border-glass);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.025);
+        }
+
+        .view-switcher button {
+            border: 0;
+            border-radius: 7px;
+            padding: 0.42rem 0.7rem;
+            color: var(--text-muted);
+            background: transparent;
+            font-size: 0.78rem;
+            cursor: pointer;
+        }
+
+        .view-switcher button.active {
+            color: var(--accent-neon);
+            background: rgba(0, 229, 255, 0.1);
+        }
+
+        .view-count {
+            color: inherit;
+            opacity: 0.8;
+            margin-left: 0.2rem;
         }
 
         .panel-title {
@@ -332,6 +377,13 @@
             color: var(--accent-neon);
         }
 
+        .results-summary {
+            width: 100%;
+            color: var(--text-muted);
+            font-size: 0.76rem;
+            font-variant-numeric: tabular-nums;
+        }
+
         /* Table Design */
         .table-container {
             overflow-x: auto;
@@ -381,6 +433,97 @@
         tr.selected td {
             background: rgba(0, 112, 243, 0.08);
             border-bottom-color: rgba(0, 112, 243, 0.3);
+        }
+
+        .mobile-lead-card {
+            border: 1px solid var(--border-glass);
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.025);
+            color: var(--text-main);
+            text-align: left;
+        }
+
+        .mobile-lead-card.selected {
+            border-color: rgba(0, 229, 255, 0.5);
+            background: rgba(0, 229, 255, 0.055);
+        }
+
+        .mobile-card-button {
+            width: 100%;
+            min-height: 44px;
+            padding: 0;
+            border: 0;
+            background: transparent;
+            color: inherit;
+            text-align: inherit;
+            cursor: pointer;
+        }
+
+        .mobile-card-button:focus-visible,
+        .pipeline-mobile-toggle:focus-visible,
+        .detail-close:focus-visible {
+            outline: 2px solid var(--accent-neon);
+            outline-offset: 2px;
+        }
+
+        .mobile-card-button:active,
+        .pipeline-mobile-toggle:active,
+        .detail-close:active {
+            transform: scale(0.98);
+        }
+
+        .mobile-card-body {
+            display: grid;
+            gap: 0.75rem;
+            padding: 1rem;
+        }
+
+        .mobile-card-top,
+        .mobile-card-bottom {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 0.75rem;
+        }
+
+        .mobile-card-title {
+            min-width: 0;
+            font-family: 'Outfit', sans-serif;
+            font-size: 1rem;
+            font-weight: 600;
+            line-height: 1.3;
+            overflow-wrap: anywhere;
+        }
+
+        .mobile-card-signal {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            line-height: 1.45;
+            overflow-wrap: anywhere;
+        }
+
+        .mobile-card-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem 0.85rem;
+            color: var(--text-muted);
+            font-size: 0.74rem;
+            line-height: 1.4;
+        }
+
+        .mobile-card-review {
+            flex: 0 0 auto;
+            color: var(--accent-neon);
+            font-size: 0.78rem;
+            font-weight: 600;
+        }
+
+        .mobile-empty-state {
+            padding: 2.5rem 1rem;
+            border-top: 1px solid var(--border-glass);
+            color: var(--text-muted);
+            text-align: center;
+            line-height: 1.5;
         }
 
         /* Badges */
@@ -736,6 +879,317 @@
             from { transform: translateX(20px); opacity: 0; }
             to { transform: translateX(0); opacity: 1; }
         }
+
+        /* Phone-first lead browsing and touch targets */
+        @media (max-width: 768px) {
+            body {
+                background-attachment: scroll;
+            }
+
+            body.mobile-detail-open {
+                overflow: hidden;
+            }
+
+            .app-container {
+                width: 100%;
+                padding: 1rem;
+            }
+
+            header {
+                align-items: stretch;
+                flex-direction: column;
+                gap: 1rem;
+                margin-bottom: 1rem;
+                padding-bottom: 1rem;
+            }
+
+            .pipeline-mobile-toggle {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                width: 100%;
+                min-height: 44px;
+                padding: 0.7rem 0.85rem;
+                border: 1px solid var(--border-glass);
+                border-radius: 12px;
+                background: rgba(255, 255, 255, 0.035);
+                color: var(--text-main);
+                font-weight: 600;
+                cursor: pointer;
+            }
+
+            .pipeline-mobile-toggle::after {
+                content: '+';
+                color: var(--accent-neon);
+                font-size: 1.2rem;
+                line-height: 1;
+            }
+
+            .pipeline-mobile-toggle[aria-expanded="true"]::after {
+                content: '−';
+            }
+
+            .header-logo {
+                align-items: flex-start;
+            }
+
+            .header-logo h1 {
+                font-size: 1.45rem;
+            }
+
+            .pipeline-controller {
+                width: 100%;
+                display: none;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 0.7rem;
+                padding: 0.8rem;
+            }
+
+            .pipeline-controller.mobile-open {
+                display: grid;
+            }
+
+            .controller-group {
+                align-items: stretch;
+                flex-direction: column;
+                gap: 0.35rem;
+                min-width: 0;
+            }
+
+            .controller-group label {
+                font-size: 0.68rem;
+            }
+
+            select,
+            .btn {
+                width: 100%;
+                min-height: 44px;
+            }
+
+            .pipeline-controller .btn {
+                grid-column: 1 / -1;
+                justify-content: center;
+            }
+
+            .metrics-grid {
+                display: flex;
+                gap: 0.75rem;
+                margin-bottom: 1rem;
+                margin-inline: -1rem;
+                padding-inline: 1rem;
+                overflow-x: auto;
+                scroll-snap-type: x proximity;
+                scrollbar-width: none;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .metrics-grid::-webkit-scrollbar {
+                display: none;
+            }
+
+            .metric-card {
+                flex: 0 0 9.4rem;
+                min-width: 9.4rem;
+                padding: 0.85rem 0.85rem 0.95rem;
+                border-radius: 16px;
+                scroll-snap-align: start;
+            }
+
+            .metric-title {
+                font-size: 0.68rem;
+                letter-spacing: 0.05em;
+            }
+
+            .metric-value {
+                font-size: 1.75rem;
+            }
+
+            .metric-desc {
+                font-size: 0.7rem;
+                line-height: 1.35;
+            }
+
+            .workspace {
+                gap: 1rem;
+            }
+
+            .panel {
+                padding: 0.9rem;
+                border-radius: 18px;
+            }
+
+            .workspace > .panel:first-child {
+                overflow: visible;
+            }
+
+            .panel-header {
+                align-items: stretch;
+                margin-bottom: 1rem;
+            }
+
+            .panel-title {
+                font-size: 1.05rem;
+                line-height: 1.3;
+            }
+
+            .panel-header-actions {
+                align-items: stretch;
+                width: 100%;
+                flex-direction: column;
+            }
+
+            .view-switcher {
+                width: 100%;
+            }
+
+            .view-switcher button {
+                flex: 1;
+                min-height: 42px;
+            }
+
+            #download-link {
+                width: 100%;
+                min-height: 44px;
+            }
+
+            .search-filter-bar {
+                position: sticky;
+                top: 0;
+                z-index: 3;
+                gap: 0.75rem;
+                margin: 0 -0.9rem 0.75rem;
+                padding: 0.75rem 0.9rem 0.65rem;
+                background: rgba(12, 13, 19, 0.97);
+                border-top: 1px solid var(--border-glass);
+                border-bottom: 1px solid var(--border-glass);
+                backdrop-filter: blur(12px);
+            }
+
+            .search-wrapper {
+                flex-basis: 100%;
+                min-width: 0;
+            }
+
+            .search-input {
+                min-height: 44px;
+            }
+
+            .filter-tags {
+                width: 100%;
+                max-width: 100%;
+                flex-wrap: nowrap;
+                overflow-x: auto;
+                padding-bottom: 0.25rem;
+                scrollbar-width: none;
+            }
+
+            .filter-tags::-webkit-scrollbar {
+                display: none;
+            }
+
+            .filter-tag {
+                flex: 0 0 auto;
+                min-height: 42px;
+                white-space: nowrap;
+            }
+
+            .table-container {
+                display: none;
+            }
+
+            .mobile-list {
+                display: grid;
+                gap: 0.65rem;
+            }
+
+            .right-sidebar {
+                gap: 1rem;
+            }
+
+            .detail-name {
+                font-size: 1.3rem;
+            }
+
+            .detail-pane.active {
+                position: fixed;
+                inset: 0;
+                z-index: 20;
+                width: 100%;
+                max-width: none;
+                min-height: 100dvh;
+                padding: 1rem 1rem calc(1.5rem + env(safe-area-inset-bottom));
+                border: 0;
+                border-radius: 0;
+                background: var(--bg-primary);
+                overflow-y: auto;
+                overscroll-behavior: contain;
+                animation: mobileDetailIn 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+            }
+
+            .detail-close {
+                position: sticky;
+                top: 0;
+                z-index: 1;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 44px;
+                min-height: 44px;
+                margin: 0 0 0.25rem auto;
+                border: 1px solid var(--border-glass);
+                border-radius: 11px;
+                background: var(--bg-secondary);
+                color: var(--text-main);
+                font-size: 1.4rem;
+                line-height: 1;
+                cursor: pointer;
+            }
+
+            .lead-facts-grid {
+                gap: 0.55rem;
+            }
+
+            .lead-fact {
+                padding: 0.7rem;
+            }
+
+            .action-grid {
+                grid-template-columns: 1fr;
+                gap: 0.6rem;
+            }
+
+            .btn-action {
+                min-height: 44px;
+            }
+
+            .console-panel {
+                padding: 1rem;
+                border-radius: 18px;
+            }
+
+            .console-output {
+                height: 160px;
+            }
+        }
+
+        @keyframes mobileDetailIn {
+            from { transform: translateY(18px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        @media (max-width: 390px) {
+            .app-container {
+                padding: 0.75rem;
+            }
+
+            .metric-card {
+                padding: 0.8rem;
+            }
+
+            .metric-value {
+                font-size: 1.55rem;
+            }
+        }
     </style>
 </head>
 <body>
@@ -749,8 +1203,12 @@
                     <p style="font-size: 0.75rem; color: var(--text-muted);">SEC EDGAR Fresh Fund Signal Detector</p>
                 </div>
             </div>
-            
-            <div class="pipeline-controller">
+
+            <button type="button" class="pipeline-mobile-toggle" id="pipeline-mobile-toggle" aria-expanded="false" aria-controls="pipeline-controller" onclick="togglePipelineControls()">
+                Pipeline controls
+            </button>
+
+            <div class="pipeline-controller" id="pipeline-controller">
                 <div class="controller-group">
                     <label for="lead-type">Type</label>
                     <select id="lead-type">
@@ -818,10 +1276,16 @@
             <!-- Left Panel: Table -->
             <div class="panel">
                 <div class="panel-header">
-                    <h2 class="panel-title">Newest VC Firm Candidates</h2>
-                    <a href="/api/leads" download="ALL_VC_LEADS.csv" class="btn-action" style="padding: 0.4rem 0.8rem; border-radius: 8px;">
+                    <h2 class="panel-title" id="panel-title">Newest VC Firm Candidates</h2>
+                    <div class="panel-header-actions">
+                        <div class="view-switcher" role="tablist" aria-label="Lead dataset">
+                            <button type="button" id="view-master" class="active" role="tab" aria-selected="true" onclick="setDataset('master')">Master leads</button>
+                            <button type="button" id="view-backlog" role="tab" aria-selected="false" onclick="setDataset('backlog')">VC research <span class="view-count" id="backlog-count">0</span></button>
+                        </div>
+                        <a href="/api/leads" download="ALL_VC_LEADS.csv" id="download-link" class="btn-action" style="padding: 0.4rem 0.8rem; border-radius: 8px;">
                         📥 Download Master CSV
-                    </a>
+                        </a>
+                    </div>
                 </div>
 
                 <!-- Filters & Search -->
@@ -830,7 +1294,7 @@
                         <span class="search-icon">🔍</span>
                         <input type="text" id="search-input" class="search-input" placeholder="Search firm, contact, signal..." oninput="filterData()">
                     </div>
-                    <div class="filter-tags">
+                    <div class="filter-tags" id="filter-tags">
                         <button class="filter-tag active" data-filter-group="run" onclick="setRunFilter('all', this)">All Runs</button>
                         <button class="filter-tag" data-filter-group="run" onclick="setRunFilter('new', this)">New This Run</button>
                         <button class="filter-tag active" id="manager-filter-all" data-filter-group="manager" onclick="setManagerFilter('all', this)">All Manager States</button>
@@ -841,12 +1305,13 @@
                         <button class="filter-tag" data-filter-group="stage" onclick="setStageFilter('Fund I', this)">Fund I</button>
                         <button class="filter-tag" data-filter-group="stage" onclick="setStageFilter('Fund II', this)">Fund II</button>
                     </div>
+                    <p class="results-summary" id="results-count" aria-live="polite">Loading leads...</p>
                 </div>
 
                 <!-- Table -->
                 <div class="table-container">
                     <table id="leads-table">
-                        <thead>
+                        <thead id="table-head">
                             <tr>
                                 <th onclick="sortLeads('firm_name')">Firm Name</th>
                                 <th onclick="sortLeads('manager_novelty_score')">Manager Verdict</th>
@@ -866,14 +1331,16 @@
                         </tbody>
                     </table>
                 </div>
+                <div class="mobile-list" id="mobile-list" aria-label="Lead results"></div>
             </div>
 
             <!-- Right Sidebar: Details & Logger Console -->
             <div class="right-sidebar">
                 <!-- Lead details panel (Drawer) -->
                 <div class="panel detail-pane" id="detail-panel">
+                    <button type="button" class="detail-close" id="detail-close" aria-label="Close lead details" onclick="closeLeadDetail()">×</button>
                     <div class="detail-header">
-                        <p class="detail-kicker">Lead profile</p>
+                        <p class="detail-kicker" id="detail-kicker">Lead profile</p>
                         <h3 class="detail-name" id="det-firm">Volo Ventures</h3>
                         <p class="detail-subtitle" id="det-name">Volo Ventures Fund II, LP</p>
                         <div class="detail-status-line">
@@ -973,8 +1440,12 @@
 
     <script>
         let allLeads = [];
+        let allBacklog = [];
+        let unresolvedBacklog = [];
         let filteredLeads = [];
         let selectedLeadCrd = null;
+        let activeDataset = 'master';
+        let backlogFilter = 'all';
         
         let runFilter = 'all';
         let managerFilter = 'all';
@@ -986,6 +1457,7 @@
         document.addEventListener("DOMContentLoaded", () => {
             fetchStats();
             fetchLeads();
+            fetchBacklog();
             checkRunnerStatus();
         });
 
@@ -1017,6 +1489,104 @@
             } catch (e) {
                 console.error("Error fetching leads:", e);
             }
+        }
+
+        async function fetchBacklog() {
+            try {
+                const r = await fetch('/api/backlog?_t=' + Date.now());
+                const payload = await r.json();
+                allBacklog = Array.isArray(payload) ? payload : (payload.rows || []);
+                unresolvedBacklog = Array.isArray(payload) ? [] : (payload.unresolved_rows || []);
+                document.getElementById('backlog-count').textContent = allBacklog.length;
+                if (activeDataset === 'backlog') {
+                    renderFilterControls();
+                    filterData();
+                }
+            } catch (e) {
+                console.error("Error fetching VC research universe:", e);
+            }
+        }
+
+        function setDataset(dataset) {
+            activeDataset = dataset;
+            selectedLeadCrd = null;
+            closeLeadDetail();
+            sortKey = dataset === 'backlog' ? 'backlog_priority' : 'filing_date';
+            sortAsc = dataset === 'backlog';
+            document.getElementById('view-master').classList.toggle('active', dataset === 'master');
+            document.getElementById('view-backlog').classList.toggle('active', dataset === 'backlog');
+            document.getElementById('view-master').setAttribute('aria-selected', String(dataset === 'master'));
+            document.getElementById('view-backlog').setAttribute('aria-selected', String(dataset === 'backlog'));
+            document.getElementById('panel-title').textContent = dataset === 'backlog'
+                ? 'VC research universe — inclusive, deduplicated firms'
+                : 'Newest VC Firm Candidates';
+            const download = document.getElementById('download-link');
+            if (dataset === 'master') {
+                download.href = '/api/leads';
+                download.setAttribute('download', 'ALL_VC_LEADS.csv');
+                download.textContent = '📥 Download Master CSV';
+                download.onclick = null;
+            } else {
+                download.href = '#';
+                download.removeAttribute('download');
+                download.textContent = '↻ Refresh VC research';
+                download.onclick = () => { fetchBacklog(); return false; };
+            }
+            renderFilterControls();
+            renderTableHead();
+            filterData();
+        }
+
+        function renderFilterControls() {
+            const tags = document.getElementById('filter-tags');
+            if (activeDataset === 'backlog') {
+                const explicitCount = allBacklog.filter(row => row.backlog_bucket === 'explicit_vc_candidate').length;
+                const possibleCount = allBacklog.filter(row => row.backlog_bucket === 'vc_name_signal_review').length;
+                const establishedCount = allBacklog.filter(row => row.backlog_bucket === 'established_manager_watchlist').length;
+                tags.innerHTML = `
+                    <button class="filter-tag active" data-filter-group="backlog" onclick="setBacklogFilter('all', this)">All VC candidates ${allBacklog.length}</button>
+                    <button class="filter-tag" data-filter-group="backlog" onclick="setBacklogFilter('1', this)">Priority 1</button>
+                    <button class="filter-tag" data-filter-group="backlog" onclick="setBacklogFilter('explicit_vc_candidate', this)">Explicit SEC VC ${explicitCount}</button>
+                    <button class="filter-tag" data-filter-group="backlog" onclick="setBacklogFilter('vc_name_signal_review', this)">Possible VC — verify ${possibleCount}</button>
+                    <button class="filter-tag" data-filter-group="backlog" onclick="setBacklogFilter('established_manager_watchlist', this)">Established watchlist ${establishedCount}</button>
+                    <button class="filter-tag" data-filter-group="backlog" onclick="setBacklogFilter('identity_resolution', this)">Unresolved VC filings ${unresolvedBacklog.length}</button>
+                `;
+            } else {
+                tags.innerHTML = `
+                    <button class="filter-tag active" data-filter-group="run" onclick="setRunFilter('all', this)">All Runs</button>
+                    <button class="filter-tag" data-filter-group="run" onclick="setRunFilter('new', this)">New This Run</button>
+                    <button class="filter-tag active" id="manager-filter-all" data-filter-group="manager" onclick="setManagerFilter('all', this)">All Manager States</button>
+                    <button class="filter-tag" id="manager-filter-likely" data-filter-group="manager" onclick="setManagerFilter('likely_new', this)">Likely New Firms</button>
+                    <button class="filter-tag" data-filter-group="manager" onclick="setManagerFilter('existing_manager', this)">Existing Managers</button>
+                    <button class="filter-tag" data-filter-group="manager" onclick="setManagerFilter('needs_review', this)">Needs Review</button>
+                    <button class="filter-tag active" data-filter-group="stage" onclick="setStageFilter('all', this)">All Stages</button>
+                    <button class="filter-tag" data-filter-group="stage" onclick="setStageFilter('Fund I', this)">Fund I</button>
+                    <button class="filter-tag" data-filter-group="stage" onclick="setStageFilter('Fund II', this)">Fund II</button>
+                `;
+            }
+        }
+
+        function renderTableHead() {
+            const head = document.getElementById('table-head');
+            head.innerHTML = activeDataset === 'backlog' ? `
+                <tr>
+                    <th onclick="sortLeads('firm_name')">Firm / filing name</th>
+                    <th onclick="sortLeads('backlog_priority')">Priority</th>
+                    <th onclick="sortLeads('vc_signal_strength')">VC evidence</th>
+                    <th onclick="sortLeads('contact_name')">SEC contact</th>
+                    <th onclick="sortLeads('amount_sold')">Amount sold</th>
+                    <th onclick="sortLeads('filing_date')">Filing date</th>
+                    <th>Next step</th>
+                </tr>` : `
+                <tr>
+                    <th onclick="sortLeads('firm_name')">Firm Name</th>
+                    <th onclick="sortLeads('manager_novelty_score')">Manager Verdict</th>
+                    <th onclick="sortLeads('freshness_score')">Freshness</th>
+                    <th onclick="sortLeads('fund_stage')">Stage</th>
+                    <th onclick="sortLeads('city')">Location</th>
+                    <th onclick="sortLeads('date_of_first_sale')">First Sale</th>
+                    <th onclick="sortLeads('filing_date')">Filing Date</th>
+                </tr>`;
         }
 
         // 2. Sorting & Filtering
@@ -1060,19 +1630,41 @@
             filterData();
         }
 
+        function setBacklogFilter(val, el) {
+            backlogFilter = activateFilterButton('backlog', el, val);
+            filterData();
+        }
+
         function filterData() {
             const query = document.getElementById('search-input').value.toLowerCase().trim();
+            const source = activeDataset === 'backlog'
+                ? (backlogFilter === 'identity_resolution' ? unresolvedBacklog : allBacklog)
+                : allLeads;
             
-            filteredLeads = allLeads.filter(lead => {
+            filteredLeads = source.filter(lead => {
                 // Search query matching
                 const matchesSearch = 
                     (lead.firm_name || '').toLowerCase().includes(query) ||
                     (lead.name || '').toLowerCase().includes(query) ||
                     (lead.contact_name || '').toLowerCase().includes(query) ||
+                    (lead.all_contacts || '').toLowerCase().includes(query) ||
                     (lead.signal_type || '').toLowerCase().includes(query) ||
                     (lead.freshness_reason || '').toLowerCase().includes(query) ||
                     (lead.manager_history_reason || '').toLowerCase().includes(query) ||
-                    (lead.manager_matched_identity || '').toLowerCase().includes(query);
+                    (lead.manager_matched_identity || '').toLowerCase().includes(query) ||
+                    (lead.backlog_bucket || '').toLowerCase().includes(query) ||
+                    (lead.vc_signal_strength || '').toLowerCase().includes(query) ||
+                    (lead.vc_signal_reason || '').toLowerCase().includes(query) ||
+                    (lead.strict_drop_reason || '').toLowerCase().includes(query) ||
+                    (lead.research_recommendation || '').toLowerCase().includes(query);
+
+                if (activeDataset === 'backlog') {
+                    const matchesBacklog = backlogFilter === 'identity_resolution'
+                        || backlogFilter === 'all'
+                        || String(lead.backlog_priority || '') === backlogFilter
+                        || String(lead.backlog_bucket || '') === backlogFilter;
+                    return matchesSearch && matchesBacklog;
+                }
 
                 const matchesManager = managerFilter === 'all' || managerStatusCode(lead) === managerFilter;
 
@@ -1123,19 +1715,143 @@
         }
 
         // 3. Renderer Table
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>'"]/g, char => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+            }[char]));
+        }
+
+        function leadRowId(lead) {
+            return activeDataset === 'backlog' ? lead.backlog_id : lead.crd;
+        }
+
+        function renderMobileCards() {
+            const mobileList = document.getElementById('mobile-list');
+            mobileList.innerHTML = '';
+
+            if (filteredLeads.length === 0) {
+                const message = activeDataset === 'backlog'
+                    ? 'No VC candidates match this search and filter.'
+                    : 'No leads match this search and filter.';
+                mobileList.innerHTML = `<div class="mobile-empty-state">${message}</div>`;
+                return;
+            }
+
+            filteredLeads.forEach(lead => {
+                const card = document.createElement('article');
+                const rowId = leadRowId(lead);
+                card.className = 'mobile-lead-card lead-selectable';
+                if (rowId === selectedLeadCrd) card.classList.add('selected');
+
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'mobile-card-button';
+
+                if (activeDataset === 'backlog') {
+                    const unresolved = lead.record_type === 'unresolved_vc_filing';
+                    const priority = String(lead.backlog_priority || '—');
+                    const priorityClass = priority === '1' ? 'badge-first' : (priority === '2' ? 'badge-new' : 'badge-estab');
+                    const signalLabel = lead.vc_signal_strength === 'explicit_sec_vc'
+                        ? 'Explicit SEC VC'
+                        : (lead.vc_signal_strength === 'public_vc_signal' ? 'Public VC launch' : 'VC name signal');
+                    const title = unresolved ? (lead.name || 'Unresolved VC filing') : (lead.firm_name || lead.name || 'Unnamed firm');
+                    button.setAttribute('aria-label', `Review ${title}`);
+                    button.innerHTML = `
+                        <span class="mobile-card-body">
+                            <span class="mobile-card-top">
+                                <span class="mobile-card-title">${escapeHtml(title)}</span>
+                                <span class="badge ${priorityClass}">P${escapeHtml(priority)}</span>
+                            </span>
+                            <span class="mobile-card-signal">${escapeHtml(unresolved ? `${signalLabel} — identity unresolved` : signalLabel)}</span>
+                            <span class="mobile-card-meta">
+                                <span>${escapeHtml(lead.contact_name || 'SEC contact not named')}</span>
+                                <span>${escapeHtml(lead.amount_sold || 'Amount not disclosed')}</span>
+                                <span>${escapeHtml(lead.filing_date || 'Date unavailable')}</span>
+                            </span>
+                            <span class="mobile-card-bottom">
+                                <span class="mobile-card-signal">${escapeHtml(String(lead.backlog_bucket || 'research pending').replaceAll('_', ' '))}</span>
+                                <span class="mobile-card-review">Review</span>
+                            </span>
+                        </span>`;
+                } else {
+                    const managerCode = managerStatusCode(lead);
+                    const managerLabel = lead.manager_status || 'Not checked';
+                    const managerBadgeClass = managerCode === 'likely_new'
+                        ? 'badge-first'
+                        : (managerCode === 'existing_manager' ? 'badge-estab' : 'badge-new');
+                    const location = (lead.city && lead.state)
+                        ? `${lead.city}, ${lead.state}`
+                        : (lead.city || lead.state || lead.country || 'Location unavailable');
+                    const title = lead.firm_name || lead.name || 'Unnamed firm';
+                    const score = parseInt(lead.freshness_score || lead.vc_score || lead.site_score) || 0;
+                    button.setAttribute('aria-label', `Review ${title}`);
+                    button.innerHTML = `
+                        <span class="mobile-card-body">
+                            <span class="mobile-card-top">
+                                <span class="mobile-card-title">${escapeHtml(title)}</span>
+                                <span class="badge ${managerBadgeClass}">${escapeHtml(managerLabel)}</span>
+                            </span>
+                            <span class="mobile-card-signal">${escapeHtml(lead.fund_stage || 'Stage needs review')} · Freshness ${score}</span>
+                            <span class="mobile-card-meta">
+                                <span>${escapeHtml(location)}</span>
+                                <span>First sale: ${escapeHtml(lead.date_of_first_sale || 'Yet to occur')}</span>
+                                <span>Filed: ${escapeHtml(lead.filing_date || 'Date unavailable')}</span>
+                            </span>
+                            <span class="mobile-card-bottom">
+                                <span class="mobile-card-signal">${isNewLead(lead) ? 'New this run' : 'Saved in master leads'}</span>
+                                <span class="mobile-card-review">Review</span>
+                            </span>
+                        </span>`;
+                }
+
+                button.onclick = () => selectLead(lead, card);
+                card.appendChild(button);
+                mobileList.appendChild(card);
+            });
+        }
+
         function renderTable() {
             const tbody = document.getElementById('table-body');
             tbody.innerHTML = '';
+            document.getElementById('results-count').textContent = `${filteredLeads.length.toLocaleString()} result${filteredLeads.length === 1 ? '' : 's'}`;
+            renderMobileCards();
 
             if (filteredLeads.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 3rem; color: var(--text-muted);">No leads found matching filters.</td></tr>`;
+                const message = activeDataset === 'backlog'
+                    ? 'No VC candidates found matching these filters.'
+                    : 'No leads found matching filters.';
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 3rem; color: var(--text-muted);">${message}</td></tr>`;
                 return;
             }
 
             filteredLeads.forEach(lead => {
                 const tr = document.createElement('tr');
-                if (lead.crd === selectedLeadCrd) {
+                const rowId = leadRowId(lead);
+                tr.classList.add('lead-selectable');
+                if (rowId === selectedLeadCrd) {
                     tr.classList.add('selected');
+                }
+
+                if (activeDataset === 'backlog') {
+                    const priority = String(lead.backlog_priority || '—');
+                    const priorityClass = priority === '1' ? 'badge-first' : (priority === '2' ? 'badge-new' : 'badge-estab');
+                    const unresolved = lead.record_type === 'unresolved_vc_filing';
+                    const signalLabel = lead.vc_signal_strength === 'explicit_sec_vc'
+                        ? 'Explicit SEC VC'
+                        : (lead.vc_signal_strength === 'public_vc_signal' ? 'Public VC launch' : 'VC name signal');
+                    const contact = lead.contact_name || 'Not named';
+                    tr.innerHTML = `
+                        <td style="font-weight: 600;">${escapeHtml(unresolved ? (lead.name || 'Unresolved VC filing') : (lead.firm_name || lead.name || 'Unnamed firm'))}</td>
+                        <td><span class="badge ${priorityClass}">P${escapeHtml(priority)}</span></td>
+                        <td>${escapeHtml(unresolved ? `${signalLabel} — identity unresolved` : signalLabel)}</td>
+                        <td>${escapeHtml(contact)}</td>
+                        <td>${escapeHtml(lead.amount_sold || 'Not disclosed')}</td>
+                        <td>${escapeHtml(lead.filing_date || '—')}</td>
+                        <td style="color: var(--accent-neon);">Review →</td>
+                    `;
+                    tr.onclick = () => selectLead(lead, tr);
+                    tbody.appendChild(tr);
+                    return;
                 }
 
                 const managerCode = managerStatusCode(lead);
@@ -1156,13 +1872,13 @@
                 const newBadge = isNewLead(lead) ? `<span class="badge badge-first" style="margin-left: 0.45rem;">New</span>` : '';
 
                 tr.innerHTML = `
-                    <td style="font-weight: 600;">${lead.firm_name}${newBadge}</td>
+                    <td style="font-weight: 600;">${escapeHtml(lead.firm_name)}${newBadge}</td>
                     <td>${managerBadge}</td>
                     <td>${scoreBadge}</td>
-                    <td>${lead.fund_stage}</td>
-                    <td style="font-weight: 500;">${(lead.city && lead.state) ? `${lead.city}, ${lead.state}` : (lead.city || lead.state || lead.country || '-')}</td>
-                    <td>${firstSaleDisplay}</td>
-                    <td>${lead.filing_date}</td>
+                    <td>${escapeHtml(lead.fund_stage)}</td>
+                    <td style="font-weight: 500;">${escapeHtml((lead.city && lead.state) ? `${lead.city}, ${lead.state}` : (lead.city || lead.state || lead.country || '-'))}</td>
+                    <td>${escapeHtml(firstSaleDisplay)}</td>
+                    <td>${escapeHtml(lead.filing_date)}</td>
                 `;
 
                 tr.onclick = () => selectLead(lead, tr);
@@ -1212,17 +1928,34 @@
 
         // 4. Select Lead & Populate Details Panel
         function selectLead(lead, rowEl) {
-            document.querySelectorAll('tr').forEach(r => r.classList.remove('selected'));
+            document.querySelectorAll('.lead-selectable').forEach(r => r.classList.remove('selected'));
             rowEl.classList.add('selected');
-            selectedLeadCrd = lead.crd;
+            const isBacklog = activeDataset === 'backlog';
+            selectedLeadCrd = isBacklog ? lead.backlog_id : lead.crd;
 
             document.getElementById('detail-placeholder').style.display = 'none';
             document.getElementById('detail-panel').classList.add('active');
+            if (window.matchMedia('(max-width: 768px)').matches) {
+                document.body.classList.add('mobile-detail-open');
+                document.getElementById('detail-close').focus({ preventScroll: true });
+            }
 
-            document.getElementById('det-firm').textContent = lead.firm_name;
-            document.getElementById('det-name').textContent = lead.name;
-            document.getElementById('det-manager-status').textContent = lead.manager_status || 'Not checked';
-            document.getElementById('det-lead-status').textContent = (lead.lead_status || 'discovered').replaceAll('_', ' ');
+            const isUnresolvedFiling = isBacklog && lead.record_type === 'unresolved_vc_filing';
+            document.getElementById('detail-kicker').textContent = isUnresolvedFiling
+                ? 'Retained VC filing — identity unresolved'
+                : (isBacklog ? 'VC firm research candidate' : 'Lead profile');
+            document.getElementById('det-firm').textContent = isUnresolvedFiling
+                ? (lead.name || 'Unresolved VC filing')
+                : (lead.firm_name || 'Unnamed filing');
+            document.getElementById('det-name').textContent = isUnresolvedFiling
+                ? 'Operating firm has not been resolved yet.'
+                : (lead.name || 'SEC legal name unavailable');
+            document.getElementById('det-manager-status').textContent = isBacklog
+                ? `Priority ${lead.backlog_priority || '—'}`
+                : (lead.manager_status || 'Not checked');
+            document.getElementById('det-lead-status').textContent = isBacklog
+                ? String(lead.backlog_bucket || 'research pending').replaceAll('_', ' ')
+                : (lead.lead_status || 'discovered').replaceAll('_', ' ');
             document.getElementById('det-filing-date').textContent = lead.filing_date || 'N/A';
             document.getElementById('det-first-sale').textContent = lead.date_of_first_sale || 'Yet to occur';
             document.getElementById('det-fund-size').textContent = lead.fund_size || 'Not disclosed';
@@ -1233,40 +1966,49 @@
             document.getElementById('det-contact').textContent = contactName
                 ? `${contactName}${contactTitle ? ` — ${contactTitle}` : ''}`
                 : 'No human SEC contact identified';
-            document.getElementById('det-contact-status').textContent = contactName
-                ? `SEC contact only. Manager identity: ${(lead.contact_verification_status || 'unverified').replaceAll('_', ' ')}.`
-                : 'Founder, GP, or managing partner still needs research.';
+            document.getElementById('det-contact-status').textContent = isBacklog
+                ? (lead.research_recommendation || 'Operating firm, decision-maker, launch evidence, and public presence still need review.')
+                : (contactName
+                    ? `SEC contact only. Manager identity: ${(lead.contact_verification_status || 'unverified').replaceAll('_', ' ')}.`
+                    : 'Founder, GP, or managing partner still needs research.');
 
             const contacts = lead.all_contacts ? lead.all_contacts.replace(/; /g, '\n') : 'None disclosed';
             document.getElementById('det-related-people').textContent = contacts;
 
-            document.getElementById('det-domain').textContent = lead.domain || 'Website not verified';
-            document.getElementById('det-website-status').textContent = lead.website_status_reason
-                || `Website status: ${(lead.website_status || 'unknown').replaceAll('_', ' ')}`;
-            document.getElementById('det-opportunity').textContent = lead.service_opportunity
-                || `Suggested route: ${(lead.offer_route || 'presence check').replaceAll('_', ' ')}`;
-            document.getElementById('det-freshness').textContent = lead.freshness_reason
-                || lead.manager_history_reason
-                || lead.signal_type
-                || 'Freshness evidence not recorded.';
-            document.getElementById('det-evidence').textContent = lead.evidence_sources
-                ? `Evidence: ${lead.evidence_sources}`
-                : 'SEC filing is the only recorded source so far.';
+            document.getElementById('det-domain').textContent = isBacklog
+                ? 'Website not audited yet'
+                : (lead.domain || 'Website not verified');
+            document.getElementById('det-website-status').textContent = isBacklog
+                ? 'This row was set aside for human/public research; no website conclusion has been made.'
+                : (lead.website_status_reason || `Website status: ${(lead.website_status || 'unknown').replaceAll('_', ' ')}`);
+            document.getElementById('det-opportunity').textContent = isBacklog
+                ? `VC evidence: ${lead.vc_signal_reason || lead.strict_drop_reason || 'Not recorded'}`
+                : (lead.service_opportunity || `Suggested route: ${(lead.offer_route || 'presence check').replaceAll('_', ' ')}`);
+            document.getElementById('det-freshness').textContent = isBacklog
+                ? (lead.research_recommendation || 'Research the operating firm, decision-maker, launch evidence, and public presence.')
+                : (lead.freshness_reason || lead.manager_history_reason || lead.signal_type || 'Freshness evidence not recorded.');
+            document.getElementById('det-evidence').textContent = isBacklog
+                ? `SEC filing: ${lead.filing_url || 'not recorded'}${lead.issues ? ` | SEC category: ${lead.issues}` : ''}${lead.source_filing_count ? ` | Related filings grouped: ${lead.source_filing_count}` : ''}`
+                : (lead.evidence_sources ? `Evidence: ${lead.evidence_sources}` : 'SEC filing is the only recorded source so far.');
 
-            const personExact = validExternalUrl(lead.linkedin_person);
-            const companyExact = validExternalUrl(lead.linkedin_company);
+            const personExact = isBacklog ? '' : validExternalUrl(lead.linkedin_person);
+            const companyExact = isBacklog ? '' : validExternalUrl(lead.linkedin_company);
             const searchFirm = String(lead.linkedin_search_firm || lead.firm_name || '').trim();
             const secPerson = String(lead.linkedin_search_person || '').trim();
             const managerCandidate = String(lead.linkedin_manager_candidate || '').trim();
             const personQuery = managerCandidate
                 ? `${managerCandidate} ${searchFirm}`
                 : `${searchFirm} founder "general partner" "managing partner"`;
-            const personSearch = linkedinSearchUrl('people', personQuery);
-            const companySearch = linkedinSearchUrl('companies', searchFirm);
+            const personSearch = isBacklog
+                ? (validExternalUrl(lead.linkedin_search_url) || linkedinSearchUrl('people', personQuery))
+                : linkedinSearchUrl('people', personQuery);
+            const companySearch = isBacklog
+                ? (validExternalUrl(lead.linkedin_company_search_url) || linkedinSearchUrl('companies', searchFirm))
+                : linkedinSearchUrl('companies', searchFirm);
             configureLeadAction(
                 'link-linkedin-person',
                 personExact || personSearch,
-                personExact ? 'Open verified manager LinkedIn' : 'Search decision-makers on LinkedIn',
+                personExact ? 'Open verified manager LinkedIn' : (isBacklog ? 'Search SEC contact on LinkedIn' : 'Search decision-makers on LinkedIn'),
                 !personExact,
             );
             configureLeadAction(
@@ -1277,22 +2019,39 @@
             );
             configureLeadAction(
                 'link-linkedin-google',
-                googleLinkedinSearchUrl(managerCandidate, searchFirm),
-                managerCandidate ? 'Find verified manager via Google' : 'Find decision-makers via Google',
+                isBacklog ? (validExternalUrl(lead.website_search_url) || googleLinkedinSearchUrl(managerCandidate, searchFirm)) : googleLinkedinSearchUrl(managerCandidate, searchFirm),
+                isBacklog ? 'Search firm / website via Google' : (managerCandidate ? 'Find verified manager via Google' : 'Find decision-makers via Google'),
                 true,
             );
             configureLeadAction(
                 'link-linkedin-sec-person',
                 secPerson ? linkedinSearchUrl('people', secPerson) : '',
-                secPerson ? `Check SEC person: ${secPerson}` : 'No human SEC person',
+                secPerson ? `Search SEC person: ${secPerson}` : 'No human SEC person',
                 true,
             );
             configureLeadAction(
                 'link-website',
-                validExternalUrl(lead.domain),
-                lead.domain ? 'Open website' : 'Website not verified',
+                isBacklog ? validExternalUrl(lead.website_search_url) : validExternalUrl(lead.domain),
+                isBacklog ? 'Search for website' : (lead.domain ? 'Open website' : 'Website not verified'),
+                isBacklog,
             );
             configureLeadAction('link-sec', validExternalUrl(lead.filing_url), 'SEC filing');
+        }
+
+        function closeLeadDetail() {
+            document.getElementById('detail-panel').classList.remove('active');
+            document.body.classList.remove('mobile-detail-open');
+            document.querySelectorAll('.lead-selectable').forEach(row => row.classList.remove('selected'));
+            selectedLeadCrd = null;
+            const placeholder = document.getElementById('detail-placeholder');
+            if (placeholder) placeholder.style.display = '';
+        }
+
+        function togglePipelineControls() {
+            const controller = document.getElementById('pipeline-controller');
+            const toggle = document.getElementById('pipeline-mobile-toggle');
+            const isOpen = controller.classList.toggle('mobile-open');
+            toggle.setAttribute('aria-expanded', String(isOpen));
         }
 
         // Helper String extension

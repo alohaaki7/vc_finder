@@ -11,6 +11,7 @@ from urllib.parse import quote_plus
 
 OUTPUT_FIELDS = [
     "checked", "signal_type", "firm_name", "name", "vehicle_type", "lead_status",
+    "funnel_class", "identity_status", "freshness_status", "collision_status", "review_cycle",
     "discovery_score", "discovery_reason", "contact_name", "contact_title",
     "contact_verification_status", "is_new_since_last_run", "first_seen_at", "last_seen_at",
     "manager_status_code", "manager_status", "manager_novelty_score", "manager_confidence",
@@ -35,6 +36,12 @@ def normalize_identity(value):
     text = str(value or "").lower().replace("&", " and ")
     text = re.sub(r"[^a-z0-9]+", " ", text)
     return re.sub(r"\s+", " ", text).strip()
+
+
+def parse_manager_states(value):
+    """Return requested manager states, or None when the CLI filter is absent."""
+    states = [state.strip() for state in str(value or "").split(",") if state.strip()]
+    return states or None
 
 
 def extract_series_manager_name(value):
@@ -123,8 +130,16 @@ STRONG_VC_NAME_PATTERN = re.compile(
     re.IGNORECASE,
 )
 PUBLIC_LAUNCH_SIGNAL_TYPES = {"launch_news", "founder_launch", "emerging_manager_program", "linkedin_launch"}
+VEHICLE_NAME_PATTERN = re.compile(
+    r"\b(?:spv|series)(?:[-_ ]?\d+)?\b|"
+    r"\b(?:feeder|syndicate|co-?invest(?:ment)?|continuation|project)\b",
+    re.IGNORECASE,
+)
 FOLLOW_ON_NAME_PATTERN = re.compile(
-    r"\b(?:fund|vc)\s*(?:ii|iii|iv|v|vi|[2-9]|[1-9]\d+)\b",
+    r"(?:\b(?:fund|vc)\s*(?:ii|iii|iv|v|vi|vii|viii|ix|x|xi|xii|xiii|xiv|xv|[2-9]|[1-9]\d+)\b|"
+    r"\b(?:ventures?|capital)\s*(?:ii|iii|iv|v|vi|vii|viii|ix|x|xi|xii|xiii|xiv|xv)\b|"
+    r"(?:[-\s])(?:ii|iii|iv|v|vi|vii|viii|ix|x|xi|xii|xiii|xiv|xv)\b"
+    r"(?:,?\s+(?:l\.?p\.?|l\.?l\.?c\.?|inc\.?|ltd\.?)\s*)?$)",
     re.IGNORECASE,
 )
 
@@ -133,18 +148,53 @@ def normalized_text(*values):
     return " ".join(str(value or "") for value in values).casefold()
 
 
-def hard_rejection_reason(row):
+def is_placeholder_contact(value):
+    text = str(value or "").strip().casefold()
+    return (
+        not text
+        or text.startswith("n/a")
+        or text in {"unknown", "view team on sec/linkedin", "fund gp"}
+        or re.search(r"\b(?:fund|gp|management|holdings|partnership|llc|l\.p\.|lp|inc\.)\b", text)
+    )
+
+
+def contact_candidate_for(row):
+    """Prefer a named human from related parties over an SEC legal placeholder."""
+    current = str(row.get("contact_name") or "").strip()
+    if not is_placeholder_contact(current):
+        return current, str(row.get("contact_title") or "").strip()
+    for entry in str(row.get("all_contacts") or "").split(";"):
+        entry = entry.strip()
+        if not entry:
+            continue
+        name, _, title = entry.partition(" (")
+        name = name.strip()
+        if not is_placeholder_contact(name):
+            return name, title.rstrip(") ") or ""
+    return "", ""
+
+
+def hard_rejection_reason(row, include_watchlist=False):
     """Return a deterministic hard-gate reason, or an empty string."""
     vehicle_type = str(row.get("vehicle_type") or "")
+    issuer_name = str(row.get("name") or row.get("firm_name") or "")
     if vehicle_type in {"possible_spv_or_series", "possible_non_vc"}:
         return vehicle_type
+    # A name such as "DI-0702 Fund I, a series of Syntax Ventures" is an SEC
+    # vehicle but carries a recoverable manager candidate. Keep that special
+    # case for identity review; reject all other vehicle labels at the gate.
+    series_manager = extract_series_manager_name(issuer_name)
+    if VEHICLE_NAME_PATTERN.search(issuer_name) and not series_manager:
+        return "deal-specific vehicle in issuer name"
+    if series_manager and VEHICLE_NAME_PATTERN.search(series_manager):
+        return "deal-specific vehicle in manager name"
     if has_explicit_non_vc_metadata(row.get("issues", "")):
         return "explicit non-VC SEC category"
-    if FOLLOW_ON_NAME_PATTERN.search(str(row.get("name") or row.get("firm_name") or "")):
+    if FOLLOW_ON_NAME_PATTERN.search(issuer_name):
         return "follow-on sequence in issuer name"
-    if row.get("fund_stage") in {"Fund II", "Later Fund"}:
+    if row.get("fund_stage") in {"Fund II", "Later Fund"} and not include_watchlist:
         return "follow-on fund"
-    if row.get("manager_status_code") == "existing_manager":
+    if row.get("manager_status_code") == "existing_manager" and not include_watchlist:
         return "existing manager"
     if row.get("lead_status") in EXCLUDED_WORKFLOW_STATUSES:
         return f"workflow status {row.get('lead_status')}"
@@ -159,6 +209,56 @@ def hard_rejection_reason(row):
             if re.search(pattern, evidence):
                 return f"audited hard gate: {pattern}"
     return ""
+
+
+def _ambiguous_vc_candidate(row):
+    """Keep plausible-but-unclassified rows for identity review in broad mode."""
+    if row.get("fund_stage") in {"Fund I", "Emerging Fund"}:
+        return True
+    if row.get("filer_status") == "first_filer":
+        return True
+    return has_positive_manager_signal(row)
+
+
+def funnel_class_for(row):
+    """Describe why a row is retained; this is not a final sales verdict."""
+    if row.get("manager_status_code") == "existing_manager" or row.get("fund_stage") in {"Fund II", "Later Fund"}:
+        return "established_manager_watchlist"
+    issues = normalized_text(row.get("issues"))
+    if "venture capital fund" not in issues and not (
+        "pooled investment fund - other investment fund" in issues and has_positive_manager_signal(row)
+    ):
+        return "identity_review"
+    if row.get("signal_type") in PUBLIC_LAUNCH_SIGNAL_TYPES:
+        return "public_signal_review"
+    year_inc = parse_year(row.get("year_inc"))
+    if year_inc and year_inc < date.today().year - 3:
+        return "freshness_review"
+    return "discovery_candidate"
+
+
+def identity_status_for(row):
+    if str(row.get("linkedin_person") or "").strip() and str(row.get("contact_verification_status") or "").strip() in {"verified", "verified_public"}:
+        return "profile_verified"
+    if str(row.get("linkedin_person") or "").strip():
+        return "profile_found"
+    contact = str(row.get("contact_name") or "").strip()
+    if contact and not is_placeholder_contact(contact):
+        return "person_candidate"
+    return "unresolved"
+
+
+def freshness_status_for(row):
+    if row.get("signal_type") in PUBLIC_LAUNCH_SIGNAL_TYPES:
+        return "launch_signal_only"
+    year_inc = parse_year(row.get("year_inc"))
+    if not year_inc:
+        return "unknown"
+    if year_inc >= date.today().year - 1:
+        return "recent_issuer_signal"
+    if year_inc >= date.today().year - 3:
+        return "older_issuer_signal"
+    return "stale_issuer_signal"
 
 
 def source_confidence_for(row):
@@ -192,10 +292,10 @@ def filing_age_days(row, today):
     return (today - filed).days
 
 
-def volume_eligibility(row, today=None):
+def volume_eligibility(row, today=None, include_watchlist=False):
     """Apply only true ICP hard gates; leave website quality as an offer signal."""
     today = today or date.today()
-    hard_reason = hard_rejection_reason(row)
+    hard_reason = hard_rejection_reason(row, include_watchlist=include_watchlist)
     if hard_reason:
         return False, hard_reason
 
@@ -209,10 +309,12 @@ def volume_eligibility(row, today=None):
     explicit_vc = "venture capital fund" in issues
     pooled_other = "pooled investment fund - other investment fund" in issues
     if not explicit_vc and not (pooled_other and has_positive_manager_signal(row)):
+        if include_watchlist and _ambiguous_vc_candidate(row):
+            return True, "ambiguous VC signal retained for identity review"
         return False, "no explicit VC category or strong pooled-fund VC name signal"
 
     year_inc = parse_year(row.get("year_inc"))
-    if year_inc and year_inc < today.year - 3:
+    if year_inc and year_inc < today.year - 3 and not include_watchlist:
         return False, "issuer formed outside the broad emerging-manager window"
 
     reasons = []
@@ -267,7 +369,7 @@ def calculate_prospect_score(row, today=None):
     capital = 15 if amount_sold > 0 else (5 if offering_amount > 0 else 0)
 
     contact_status = str(row.get("contact_verification_status") or "")
-    has_contact = bool(str(row.get("contact_name") or "").strip())
+    has_contact = not is_placeholder_contact(row.get("contact_name"))
     has_linkedin = bool(str(row.get("linkedin_person") or "").strip())
     if has_linkedin and contact_status in {"verified", "verified_public"}:
         identity = 20
@@ -292,7 +394,10 @@ def calculate_prospect_score(row, today=None):
 
     source_confidence = source_confidence_for(row)
     category = 5 if source_confidence == "explicit_vc" else (4 if source_confidence == "public_launch_signal" else 2)
-    return min(newness + capital + identity + recency + opportunity_points(row) + category, 100)
+    score = min(newness + capital + identity + recency + opportunity_points(row) + category, 100)
+    if row.get("manager_status_code") == "existing_manager" or row.get("fund_stage") in {"Fund II", "Later Fund"}:
+        score = max(0, score - 15)
+    return score
 
 
 def prospect_tier(score):
@@ -312,7 +417,7 @@ def volume_status_for(row):
         return "profile_verified"
     if has_linkedin:
         return "profile_found"
-    if str(row.get("contact_name") or "").strip():
+    if not is_placeholder_contact(row.get("contact_name")):
         return "linkedin_lookup"
     return "identity_lookup"
 
@@ -347,8 +452,7 @@ def search_url(base, query):
 def dedupe_key(row):
     firm = normalize_identity(row.get("firm_name") or row.get("name") or "")
     firm = re.sub(r"\s+fund(?:\s+(?:i|1))?$", "", firm).strip()
-    location = normalize_identity(f"{row.get('city', '')} {row.get('state', '')}")
-    return firm, location
+    return firm
 
 
 def write_weekly_batches(rows, weekly_dir, batch_size=25):
@@ -376,26 +480,49 @@ def build_monthly_queue(
     month=None,
     external_paths=None,
     weekly_dir=None,
+    manager_states=None,
+    include_watchlist=False,
+    review_cycle="",
 ):
     today = today or date.today()
     month = month or today.strftime("%Y-%m")
     with Path(source).open(newline="", encoding="utf-8-sig") as handle:
         rows = list(csv.DictReader(handle))
+    if manager_states:
+        allowed_states = {str(state).strip() for state in manager_states if str(state).strip()}
+        rows = [row for row in rows if str(row.get("manager_status_code") or "").strip() in allowed_states]
     for external_path in external_paths or []:
         with Path(external_path).open(newline="", encoding="utf-8-sig") as handle:
             rows.extend(csv.DictReader(handle))
 
     candidates = []
     for original in rows:
-        eligible, reason = volume_eligibility(original, today=today)
+        eligible, reason = volume_eligibility(
+            original,
+            today=today,
+            include_watchlist=include_watchlist,
+        )
         if not eligible:
             continue
         row = dict(original)
         series_manager = extract_series_manager_name(row.get("name"))
         if series_manager:
             row["firm_name"] = series_manager
+        contact_name, contact_title = contact_candidate_for(row)
+        if contact_name:
+            row["contact_name"] = contact_name
+            if contact_title:
+                row["contact_title"] = contact_title
+        elif is_placeholder_contact(row.get("contact_name")):
+            row["contact_name"] = ""
+            row["contact_title"] = ""
         score = calculate_prospect_score(row, today=today)
         row.update({
+            "funnel_class": funnel_class_for(row),
+            "identity_status": identity_status_for(row),
+            "freshness_status": freshness_status_for(row),
+            "collision_status": "not_checked",
+            "review_cycle": review_cycle,
             "prospect_score": str(score),
             "prospect_tier": prospect_tier(score),
             "volume_status": volume_status_for(row),
@@ -482,6 +609,10 @@ def main():
     parser.add_argument("destination", help="Monthly prospect CSV")
     parser.add_argument("--limit", type=int, default=0, help="Monthly prospect target; 0 keeps every survivor")
     parser.add_argument("--deep-limit", type=int, default=20, help="Rows reserved for deep research")
+    parser.add_argument(
+        "--manager-states",
+        help="Optional comma-separated manager_status_code values to retain from the primary SEC source",
+    )
     parser.add_argument("--month", help="Batch label in YYYY-MM format")
     parser.add_argument(
         "--external",
@@ -490,6 +621,16 @@ def main():
         help="Additional normalized public-signal CSV; may be repeated",
     )
     parser.add_argument("--weekly-dir", help="Optional directory for 25-row weekly CSV batches")
+    parser.add_argument(
+        "--include-watchlist",
+        action="store_true",
+        help="Retain established managers, follow-on funds, and ambiguous VC signals for separate identity review",
+    )
+    parser.add_argument(
+        "--review-cycle",
+        default="",
+        help="Optional audit-cycle label stored on every output row",
+    )
     args = parser.parse_args()
     if args.limit < 0:
         parser.error("--limit must be 0 or greater")
@@ -503,6 +644,9 @@ def main():
         month=args.month,
         external_paths=args.external,
         weekly_dir=args.weekly_dir,
+        manager_states=parse_manager_states(args.manager_states),
+        include_watchlist=args.include_watchlist,
+        review_cycle=args.review_cycle,
     )
 
 

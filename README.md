@@ -32,6 +32,13 @@ python server.py
 
 Open `http://localhost:5001`.
 
+The dashboard has two browser views: `Master leads` for the raw SEC pipeline and
+`VC research` for an inclusive, deduplicated VC candidate universe. The VC view
+keeps explicit SEC VC filings and strong VC-name signals, labels evidence strength,
+and retains vehicle-only filings in a separate identity-resolution filter instead
+of silently discarding them. It does not mark unverified SEC names as verified
+firms or people. Running the pipeline refreshes this data automatically.
+
 ## Pipeline CLI
 
 ```bash
