@@ -212,8 +212,8 @@ def export_row(row, firm, signal_strength, signal_reason, source_filing_count=1,
     }
 
 
-def build(source, destination, today):
-    """Write deduplicated VC firms plus a retained unresolved-filing appendix."""
+def build_rows(source, today):
+    """Return current VC candidates and unresolved filings from the SEC master file."""
     with Path(source).open(newline="", encoding="utf-8-sig") as handle:
         rows = list(csv.DictReader(handle))
 
@@ -269,6 +269,13 @@ def build(source, destination, today):
     backlog.sort(key=lambda row: row.get("filing_date", ""), reverse=True)
     backlog.sort(key=lambda row: int(row["backlog_priority"]))
     unresolved.sort(key=lambda row: row.get("filing_date", ""), reverse=True)
+
+    return backlog, unresolved
+
+
+def build(source, destination, today):
+    """Write deduplicated VC firms plus a retained unresolved-filing appendix."""
+    backlog, unresolved = build_rows(source, today)
 
     combined = backlog + unresolved
     with Path(destination).open("w", newline="", encoding="utf-8") as handle:

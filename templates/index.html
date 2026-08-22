@@ -271,6 +271,22 @@
             flex-wrap: wrap;
         }
 
+        .refresh-status {
+            width: 100%;
+            min-height: 1.1rem;
+            color: var(--text-muted);
+            font-size: 0.74rem;
+            text-align: right;
+        }
+
+        .refresh-status.is-success {
+            color: var(--accent-green);
+        }
+
+        .refresh-status.is-error {
+            color: var(--accent-red);
+        }
+
         .view-switcher {
             display: inline-flex;
             padding: 0.2rem;
@@ -1038,6 +1054,10 @@
                 flex-direction: column;
             }
 
+            .refresh-status {
+                text-align: left;
+            }
+
             .view-switcher {
                 width: 100%;
             }
@@ -1285,6 +1305,7 @@
                         <a href="/api/leads" download="ALL_VC_LEADS.csv" id="download-link" class="btn-action" style="padding: 0.4rem 0.8rem; border-radius: 8px;">
                         📥 Download Master CSV
                         </a>
+                        <p class="refresh-status" id="backlog-refresh-status" aria-live="polite"></p>
                     </div>
                 </div>
 
@@ -1491,10 +1512,22 @@
             }
         }
 
-        async function fetchBacklog() {
+        async function fetchBacklog(showFeedback = false) {
+            const refreshButton = document.getElementById('download-link');
+            const refreshStatus = document.getElementById('backlog-refresh-status');
+            if (showFeedback) {
+                refreshButton.setAttribute('aria-busy', 'true');
+                refreshButton.setAttribute('aria-disabled', 'true');
+                refreshButton.textContent = 'Refreshing latest SEC data...';
+                refreshStatus.className = 'refresh-status';
+                refreshStatus.textContent = 'Rebuilding the VC research universe.';
+            }
             try {
                 const r = await fetch('/api/backlog?_t=' + Date.now());
                 const payload = await r.json();
+                if (!r.ok || payload.error) {
+                    throw new Error(payload.error || `Refresh failed with status ${r.status}`);
+                }
                 allBacklog = Array.isArray(payload) ? payload : (payload.rows || []);
                 unresolvedBacklog = Array.isArray(payload) ? [] : (payload.unresolved_rows || []);
                 document.getElementById('backlog-count').textContent = allBacklog.length;
@@ -1502,9 +1535,32 @@
                     renderFilterControls();
                     filterData();
                 }
+                if (showFeedback) {
+                    const refreshedAt = payload.refreshed_at ? new Date(payload.refreshed_at) : new Date();
+                    const timeLabel = Number.isNaN(refreshedAt.getTime())
+                        ? 'just now'
+                        : refreshedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    refreshStatus.className = 'refresh-status is-success';
+                    refreshStatus.textContent = `Updated ${allBacklog.length.toLocaleString()} VC firms and ${unresolvedBacklog.length.toLocaleString()} unresolved filings at ${timeLabel}.`;
+                }
             } catch (e) {
                 console.error("Error fetching VC research universe:", e);
+                if (showFeedback) {
+                    refreshStatus.className = 'refresh-status is-error';
+                    refreshStatus.textContent = `Refresh failed: ${e.message}`;
+                }
+            } finally {
+                if (showFeedback) {
+                    refreshButton.removeAttribute('aria-busy');
+                    refreshButton.removeAttribute('aria-disabled');
+                    refreshButton.textContent = 'Refresh from latest SEC data';
+                }
             }
+        }
+
+        function refreshBacklog() {
+            fetchBacklog(true);
+            return false;
         }
 
         function setDataset(dataset) {
@@ -1526,11 +1582,12 @@
                 download.setAttribute('download', 'ALL_VC_LEADS.csv');
                 download.textContent = '📥 Download Master CSV';
                 download.onclick = null;
+                document.getElementById('backlog-refresh-status').textContent = '';
             } else {
                 download.href = '#';
                 download.removeAttribute('download');
-                download.textContent = '↻ Refresh VC research';
-                download.onclick = () => { fetchBacklog(); return false; };
+                download.textContent = 'Refresh from latest SEC data';
+                download.onclick = refreshBacklog;
             }
             renderFilterControls();
             renderTableHead();

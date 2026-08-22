@@ -58,16 +58,19 @@ jobs:
             --type "$LEAD_TYPE" \
             --days "$DAYS" \
             --output ALL_VC_LEADS.csv
+          python build_research_backlog.py \
+            --source ALL_VC_LEADS.csv \
+            --destination ALAMAT_RESEARCH_BACKLOG.csv
 
-      - name: Commit refreshed CSV
+      - name: Commit refreshed lead data
         run: |
-          if git diff --quiet -- ALL_VC_LEADS.csv; then
+          if git diff --quiet -- ALL_VC_LEADS.csv ALAMAT_RESEARCH_BACKLOG.csv; then
             echo "No lead changes found."
             exit 0
           fi
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add ALL_VC_LEADS.csv
+          git add ALL_VC_LEADS.csv ALAMAT_RESEARCH_BACKLOG.csv
           git commit -m "Refresh SEC leads"
           git push

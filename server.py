@@ -10,10 +10,10 @@ import csv
 import json
 import re
 import threading
-from datetime import date
+from datetime import date, datetime, timezone
 from flask import Flask, jsonify, request, send_from_directory, render_template_string
 from pipeline import clean_firm_name, extract_related_name, is_entity_identity, run_pipeline
-from build_research_backlog import build as build_research_backlog
+from build_research_backlog import build as build_research_backlog, build_rows as build_research_backlog_rows
 
 app = Flask(__name__, static_folder="templates")
 
@@ -204,26 +204,42 @@ def get_leads():
 
 @app.route("/api/backlog", methods=["GET"])
 def get_research_backlog():
-    """Return deduplicated VC firms and retained unresolved VC filings."""
-    if not os.path.exists(BACKLOG_FILE):
-        return jsonify({"rows": [], "total": 0, "counts": {}, "unresolved_rows": [], "unresolved_total": 0})
-
-    rows = []
-    unresolved_rows = []
-    counts = {}
+    """Build the VC universe from the latest SEC master data and return it."""
+    source = "live_sec_master"
     try:
-        with open(BACKLOG_FILE, "r", encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-            for index, row in enumerate(reader):
-                prepared = prepare_backlog_for_display(row, index)
-                if prepared.get("record_type") == "unresolved_vc_filing":
-                    unresolved_rows.append(prepared)
-                else:
-                    rows.append(prepared)
-                    bucket = str(prepared.get("backlog_bucket") or "unknown")
-                    counts[bucket] = counts.get(bucket, 0) + 1
+        if os.path.exists(LEADS_FILE):
+            candidate_rows, unresolved_source_rows = build_research_backlog_rows(
+                LEADS_FILE,
+                date.today(),
+            )
+        elif os.path.exists(BACKLOG_FILE):
+            source = "saved_backlog_fallback"
+            with open(BACKLOG_FILE, "r", encoding="utf-8") as f:
+                saved_rows = list(csv.DictReader(f))
+            candidate_rows = [row for row in saved_rows if row.get("record_type") != "unresolved_vc_filing"]
+            unresolved_source_rows = [row for row in saved_rows if row.get("record_type") == "unresolved_vc_filing"]
+        else:
+            return jsonify({
+                "rows": [],
+                "total": 0,
+                "counts": {},
+                "unresolved_rows": [],
+                "unresolved_total": 0,
+                "source": "empty",
+                "refreshed_at": datetime.now(timezone.utc).isoformat(),
+            })
     except Exception as e:
-        return jsonify({"error": f"Failed to read research backlog: {e}"}), 500
+        return jsonify({"error": f"Failed to rebuild research backlog: {e}"}), 500
+
+    rows = [prepare_backlog_for_display(row, index) for index, row in enumerate(candidate_rows)]
+    unresolved_rows = [
+        prepare_backlog_for_display(row, len(rows) + index)
+        for index, row in enumerate(unresolved_source_rows)
+    ]
+    counts = {}
+    for prepared in rows:
+        bucket = str(prepared.get("backlog_bucket") or "unknown")
+        counts[bucket] = counts.get(bucket, 0) + 1
 
     return jsonify({
         "rows": rows,
@@ -231,6 +247,8 @@ def get_research_backlog():
         "counts": counts,
         "unresolved_rows": unresolved_rows,
         "unresolved_total": len(unresolved_rows),
+        "source": source,
+        "refreshed_at": datetime.now(timezone.utc).isoformat(),
     })
 
 
