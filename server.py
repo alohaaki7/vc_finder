@@ -8,6 +8,7 @@ display real-time logs, and fetch high-level metrics.
 import os
 import csv
 import json
+import gzip
 import re
 import threading
 from datetime import date, datetime, timezone
@@ -200,6 +201,41 @@ def get_leads():
         return jsonify({"error": f"Failed to read CSV: {e}"}), 500
 
     return jsonify(leads)
+
+
+@app.route('/adv')
+def adv_inbox():
+    return send_from_directory(TEMPLATE_DIR, 'adv.html')
+
+
+@app.route('/api/adv')
+def adv_data():
+    path = os.path.join(SCRIPT_DIR, 'ALAMAT_ADV_SIGNALS.csv')
+    if not os.path.exists(path):
+        return jsonify({'rows': [], 'metadata': {}, 'error': 'ADV data has not been imported yet.'})
+    try:
+        with open(path, encoding='utf-8', newline='') as f:
+            rows = list(csv.DictReader(f))
+        with open(os.path.join(SCRIPT_DIR, 'ALAMAT_ADV_SIGNALS.json'), encoding='utf-8') as f:
+            metadata = json.load(f)
+        review_path = os.path.join(SCRIPT_DIR, 'ADV_REVIEWS.json')
+        reviews = {}
+        if os.path.exists(review_path):
+            with open(review_path, encoding='utf-8') as f:
+                reviews = json.load(f)
+        for row in rows:
+            row['review'] = reviews.get(row['crd_number'], {})
+            for key in ('record_type', 'adv_id', 'source_url', 'feed_date', 'phone', 'new_to_snapshot', 'verification_status', 'freshness_bucket'):
+                row.pop(key, None)
+        rows.sort(key=lambda row: row.get('registration_date', ''), reverse=True)
+        response = jsonify({'rows': rows, 'metadata': metadata})
+        if 'gzip' in request.headers.get('Accept-Encoding', ''):
+            response.set_data(gzip.compress(response.get_data()))
+            response.headers['Content-Encoding'] = 'gzip'
+            response.headers['Vary'] = 'Accept-Encoding'
+        return response
+    except (OSError, ValueError) as error:
+        return jsonify({'error': str(error)}), 500
 
 
 @app.route("/api/backlog", methods=["GET"])

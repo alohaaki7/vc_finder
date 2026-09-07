@@ -1,0 +1,41 @@
+name: Refresh ADV inbox
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/adv-inbox]
+    paths:
+      - collect_adv_signals.py
+      - .github/workflows/refresh-adv.yml
+permissions:
+  contents: write
+concurrency:
+  group: adv-inbox-refresh
+  cancel-in-progress: false
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: pip install requests
+      - run: python collect_adv_signals.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: adv-inbox
+          path: |
+            ALAMAT_ADV_SIGNALS.csv
+            ALAMAT_ADV_SIGNALS.json
+            ALAMAT_ADV_SNAPSHOT.csv
+      - name: Publish refreshed data on manual main run
+        if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ALAMAT_ADV_SIGNALS.csv ALAMAT_ADV_SIGNALS.json ALAMAT_ADV_SNAPSHOT.csv
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Refresh official ADV discovery data'
+          git pull --rebase origin main
+          git push origin HEAD:main
