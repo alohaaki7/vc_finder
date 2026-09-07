@@ -1,0 +1,64 @@
+name: Test free ADV access
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [test/adv-access]
+    paths: [.github/workflows/test-adv-access.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  download-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check official feed access
+        shell: python
+        run: |
+          import datetime
+          import gzip
+          import os
+          import urllib.request
+          import urllib.error
+          import xml.etree.ElementTree as ET
+
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, req, fp, code, msg, headers, newurl):
+                  return None
+
+          opener = urllib.request.build_opener(NoRedirect)
+          report = ['# Official ADV download test', 'No lead data or website files are modified.']
+          success = False
+          for offset in range(4):
+              day = datetime.datetime.now(datetime.timezone.utc).date() - datetime.timedelta(days=offset)
+              url = 'https://reports.adviserinfo.sec.gov/reports/CompilationReports/IA_FIRM_SEC_Feed_' + day.strftime('%m_%d_%Y') + '.xml.gz'
+              req = urllib.request.Request(url, headers={'User-Agent': 'AlamatStudio public-data access test', 'Accept': 'application/gzip'})
+              try:
+                  with opener.open(req, timeout=30) as response:
+                      payload = response.read(30_000_001)
+                  if len(payload) > 30_000_000:
+                      raise ValueError('Download exceeded test size limit')
+                  xml = gzip.decompress(payload)
+                  root = ET.fromstring(xml)
+                  count = sum(1 for node in root.iter() if node.tag.rsplit('}', 1)[-1] == 'Firm')
+                  if count == 0:
+                      raise ValueError('Downloaded XML contains no Firm records')
+                  report.append(f'SUCCESS: {url} — {count} adviser records; this is not a qualified-lead count.')
+                  success = True
+                  break
+              except urllib.error.HTTPError as error:
+                  report.append(f'{day}: HTTP {error.code}; redirect: {error.headers.get("Location", "none")}')
+                  if error.code in (401, 403) or 'waf' in error.headers.get('Location', '').lower():
+                      break
+              except Exception as error:
+                  report.append(f'{day}: {type(error).__name__}: {error}')
+          if not success:
+              report.append('FAILED: usable current ADV data could not be retrieved from this runner.')
+          result = '\n\n'.join(report)
+          print(result)
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+              summary.write(result)
+          if not success:
+              raise SystemExit(1)
