@@ -1,0 +1,28 @@
+name: Refresh ADV inbox
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/adv-inbox]
+    paths:
+      - collect_adv_signals.py
+      - .github/workflows/refresh-adv.yml
+permissions:
+  contents: read
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: pip install requests
+      - run: python collect_adv_signals.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: adv-inbox
+          path: |
+            ALAMAT_ADV_SIGNALS.csv
+            ALAMAT_ADV_SIGNALS.json
+            ALAMAT_ADV_SNAPSHOT.csv
