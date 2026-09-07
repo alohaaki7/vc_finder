@@ -1,0 +1,19 @@
+{
+  "344374": {
+    "verdict": "Established manager — low fit for new-firm outreach",
+    "launch": "Established: official site describes over 25 years",
+    "website_status": "Substantial public site; no missing-site opportunity",
+    "summary": "The ADV record lists headline.com. That official site describes more than 25 years of activity, with portfolio, team and contact sections. The September registration does not establish a new firm launch.",
+    "checked_at": "2026-09-07",
+    "sources": ["https://headline.com/"],
+    "established": true
+  },
+  "344393": {
+    "verdict": "Website already built — lower website priority",
+    "launch": "Exact launch date not verified",
+    "website_status": "Thesis, named team and contact form present",
+    "summary": "Official site names Paco Riberas and Dan Abelon as General Partners and presents a developed investment thesis. No specific website or SMM gap has been established. Do not treat the new registration as a confirmed launch date.",
+    "checked_at": "2026-09-07",
+    "sources": ["https://www.isogonventures.com/", "https://www.isogonventures.com/team/paco-riberas", "https://www.isogonventures.com/team/dan-abelon"]
+  }
+}
