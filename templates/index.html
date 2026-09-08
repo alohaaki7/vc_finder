@@ -1414,6 +1414,15 @@
                             SEC filing
                         </a>
                     </div>
+                    <section class="lead-section" id="review-actions" aria-labelledby="review-actions-title" hidden>
+                        <h4 class="lead-section-title" id="review-actions-title">Your research decision</h4>
+                        <span class="lead-note" id="review-action-status">Choose where this candidate belongs. Your choice survives future SEC refreshes on this device.</span>
+                        <div class="action-grid review-decision-grid">
+                            <button type="button" class="btn-action" onclick="moveSelectedLead('needs_identity')">Needs identity</button>
+                            <button type="button" class="btn-action btn-primary-action" onclick="moveSelectedLead('likely_new_vc')">Likely new VC</button>
+                            <button type="button" class="btn-action" onclick="moveSelectedLead('watchlist')">Move to watchlist</button>
+                        </div>
+                    </section>
                 </div>
 
                 <div class="panel" id="detail-placeholder">
@@ -1452,6 +1461,33 @@
         let stageFilter = 'all';
         let sortKey = 'filing_date';
         let sortAsc = false;
+
+        const workflowLabels = {
+            needs_identity: 'Needs identity',
+            likely_new_vc: 'Likely new VC',
+            watchlist: 'Watchlist',
+        };
+
+        function storedWorkflowBuckets() {
+            try {
+                return JSON.parse(localStorage.getItem('alamatWorkflowBuckets') || '{}');
+            } catch (_error) {
+                return {};
+            }
+        }
+
+        function applyStoredWorkflowBuckets(rows) {
+            const stored = storedWorkflowBuckets();
+            rows.forEach(row => {
+                if (stored[row.backlog_id]) row.workflow_bucket = stored[row.backlog_id];
+            });
+        }
+
+        function storeWorkflowBucket(backlogId, workflowBucket) {
+            const stored = storedWorkflowBuckets();
+            stored[backlogId] = workflowBucket;
+            localStorage.setItem('alamatWorkflowBuckets', JSON.stringify(stored));
+        }
 
         // Init
         document.addEventListener("DOMContentLoaded", () => {
@@ -1497,6 +1533,8 @@
                 const payload = await r.json();
                 allBacklog = Array.isArray(payload) ? payload : (payload.rows || []);
                 unresolvedBacklog = Array.isArray(payload) ? [] : (payload.unresolved_rows || []);
+                applyStoredWorkflowBuckets(allBacklog);
+                applyStoredWorkflowBuckets(unresolvedBacklog);
                 document.getElementById('backlog-count').textContent = allBacklog.length;
                 if (activeDataset === 'backlog') {
                     renderFilterControls();
@@ -1540,16 +1578,16 @@
         function renderFilterControls() {
             const tags = document.getElementById('filter-tags');
             if (activeDataset === 'backlog') {
-                const explicitCount = allBacklog.filter(row => row.backlog_bucket === 'explicit_vc_candidate').length;
-                const possibleCount = allBacklog.filter(row => row.backlog_bucket === 'vc_name_signal_review').length;
-                const establishedCount = allBacklog.filter(row => row.backlog_bucket === 'established_manager_watchlist').length;
+                const combined = [...allBacklog, ...unresolvedBacklog];
+                const identityCount = combined.filter(row => row.workflow_bucket === 'needs_identity').length;
+                const likelyCount = combined.filter(row => row.workflow_bucket === 'likely_new_vc').length;
+                const watchlistCount = combined.filter(row => row.workflow_bucket === 'watchlist').length;
                 tags.innerHTML = `
-                    <button class="filter-tag active" data-filter-group="backlog" onclick="setBacklogFilter('all', this)">All VC candidates ${allBacklog.length}</button>
+                    <button class="filter-tag active" data-filter-group="backlog" onclick="setBacklogFilter('all', this)">All VC candidates ${combined.length}</button>
                     <button class="filter-tag" data-filter-group="backlog" onclick="setBacklogFilter('1', this)">Priority 1</button>
-                    <button class="filter-tag" data-filter-group="backlog" onclick="setBacklogFilter('explicit_vc_candidate', this)">Explicit SEC VC ${explicitCount}</button>
-                    <button class="filter-tag" data-filter-group="backlog" onclick="setBacklogFilter('vc_name_signal_review', this)">Possible VC — verify ${possibleCount}</button>
-                    <button class="filter-tag" data-filter-group="backlog" onclick="setBacklogFilter('established_manager_watchlist', this)">Established watchlist ${establishedCount}</button>
-                    <button class="filter-tag" data-filter-group="backlog" onclick="setBacklogFilter('identity_resolution', this)">Unresolved VC filings ${unresolvedBacklog.length}</button>
+                    <button class="filter-tag" data-filter-group="backlog" onclick="setBacklogFilter('needs_identity', this)">Needs identity ${identityCount}</button>
+                    <button class="filter-tag" data-filter-group="backlog" onclick="setBacklogFilter('likely_new_vc', this)">Likely new VC ${likelyCount}</button>
+                    <button class="filter-tag" data-filter-group="backlog" onclick="setBacklogFilter('watchlist', this)">Watchlist ${watchlistCount}</button>
                 `;
             } else {
                 tags.innerHTML = `
@@ -1638,7 +1676,7 @@
         function filterData() {
             const query = document.getElementById('search-input').value.toLowerCase().trim();
             const source = activeDataset === 'backlog'
-                ? (backlogFilter === 'identity_resolution' ? unresolvedBacklog : allBacklog)
+                ? [...allBacklog, ...unresolvedBacklog]
                 : allLeads;
             
             filteredLeads = source.filter(lead => {
@@ -1659,10 +1697,9 @@
                     (lead.research_recommendation || '').toLowerCase().includes(query);
 
                 if (activeDataset === 'backlog') {
-                    const matchesBacklog = backlogFilter === 'identity_resolution'
-                        || backlogFilter === 'all'
+                    const matchesBacklog = backlogFilter === 'all'
                         || String(lead.backlog_priority || '') === backlogFilter
-                        || String(lead.backlog_bucket || '') === backlogFilter;
+                        || String(lead.workflow_bucket || '') === backlogFilter;
                     return matchesSearch && matchesBacklog;
                 }
 
@@ -1769,7 +1806,7 @@
                                 <span>${escapeHtml(lead.filing_date || 'Date unavailable')}</span>
                             </span>
                             <span class="mobile-card-bottom">
-                                <span class="mobile-card-signal">${escapeHtml(String(lead.backlog_bucket || 'research pending').replaceAll('_', ' '))}</span>
+                                <span class="mobile-card-signal">${escapeHtml(workflowLabels[lead.workflow_bucket] || 'Needs identity')}</span>
                                 <span class="mobile-card-review">Review</span>
                             </span>
                         </span>`;
@@ -1954,8 +1991,12 @@
                 ? `Priority ${lead.backlog_priority || '—'}`
                 : (lead.manager_status || 'Not checked');
             document.getElementById('det-lead-status').textContent = isBacklog
-                ? String(lead.backlog_bucket || 'research pending').replaceAll('_', ' ')
+                ? (workflowLabels[lead.workflow_bucket] || 'Needs identity')
                 : (lead.lead_status || 'discovered').replaceAll('_', ' ');
+            document.getElementById('review-actions').hidden = !isBacklog;
+            document.getElementById('review-action-status').textContent = isBacklog
+                ? `Currently: ${workflowLabels[lead.workflow_bucket] || 'Needs identity'}. Saved on this device.`
+                : '';
             document.getElementById('det-filing-date').textContent = lead.filing_date || 'N/A';
             document.getElementById('det-first-sale').textContent = lead.date_of_first_sale || 'Yet to occur';
             document.getElementById('det-fund-size').textContent = lead.fund_size || 'Not disclosed';
@@ -2036,6 +2077,32 @@
                 isBacklog,
             );
             configureLeadAction('link-sec', validExternalUrl(lead.filing_url), 'SEC filing');
+        }
+
+        async function moveSelectedLead(workflowBucket) {
+            if (activeDataset !== 'backlog' || !selectedLeadCrd) return;
+            const lead = [...allBacklog, ...unresolvedBacklog].find(item => item.backlog_id === selectedLeadCrd);
+            if (!lead) return;
+            const status = document.getElementById('review-action-status');
+            status.textContent = 'Saving decision…';
+            storeWorkflowBucket(lead.backlog_id, workflowBucket);
+            lead.workflow_bucket = workflowBucket;
+            status.textContent = `Saved on this device: ${workflowLabels[workflowBucket]}.`;
+            document.getElementById('det-lead-status').textContent = workflowLabels[workflowBucket];
+            renderFilterControls();
+            filterData();
+            try {
+                const response = await fetch(`/api/backlog/${encodeURIComponent(lead.backlog_id)}/bucket`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ workflow_bucket: workflowBucket }),
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error || 'Could not save decision.');
+                status.textContent = `Saved: ${workflowLabels[workflowBucket]}.`;
+            } catch (error) {
+                status.textContent = `Saved on this device. Server sync is unavailable.`;
+            }
         }
 
         function closeLeadDetail() {

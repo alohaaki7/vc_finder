@@ -27,6 +27,13 @@ class MobileDashboardTests(unittest.TestCase):
         self.assertIn("min-height: 44px", self.template)
         self.assertIn('id="results-count" aria-live="polite"', self.template)
 
+    def test_backlog_can_be_classified_without_leaving_the_detail_sheet(self):
+        self.assertIn("moveSelectedLead('needs_identity')", self.template)
+        self.assertIn("moveSelectedLead('likely_new_vc')", self.template)
+        self.assertIn("moveSelectedLead('watchlist')", self.template)
+        self.assertIn("Your choice survives future SEC refreshes on this device", self.template)
+        self.assertIn("localStorage.setItem('alamatWorkflowBuckets'", self.template)
+
 
 if __name__ == "__main__":
     unittest.main()

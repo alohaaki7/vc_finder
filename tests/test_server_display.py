@@ -42,7 +42,8 @@ class ServerDisplayTests(unittest.TestCase):
 
         displayed = prepare_backlog_for_display(row, 7)
 
-        self.assertEqual(displayed["backlog_id"], "backlog-7")
+        self.assertRegex(displayed["backlog_id"], r"^backlog-[0-9a-f]{20}$")
+        self.assertEqual(displayed["workflow_bucket"], "needs_identity")
         self.assertEqual(displayed["linkedin_search_person"], "Brian Morfitt")
         self.assertNotIn("linkedin_person", displayed)
 

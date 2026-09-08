@@ -7,8 +7,10 @@ display real-time logs, and fetch high-level metrics.
 
 import os
 import csv
+import hashlib
 import json
 import re
+import tempfile
 import threading
 from datetime import date
 from flask import Flask, jsonify, request, send_from_directory, render_template_string
@@ -26,7 +28,9 @@ def add_header(response):
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 LEADS_FILE = os.path.join(SCRIPT_DIR, "ALL_VC_LEADS.csv")
 BACKLOG_FILE = os.path.join(SCRIPT_DIR, "ALAMAT_RESEARCH_BACKLOG.csv")
+REVIEW_STATE_FILE = os.path.join(SCRIPT_DIR, "ALAMAT_REVIEW_STATE.json")
 LOGS_FILE = os.path.join(SCRIPT_DIR, "pipeline_run.log")
+review_state_lock = threading.Lock()
 
 # Lock and state for running pipeline
 pipeline_lock = threading.Lock()
@@ -59,14 +63,66 @@ def prepare_lead_for_display(row):
     return display_row
 
 
-def prepare_backlog_for_display(row, index=0):
+def backlog_key(row):
+    """Return a stable identifier that survives backlog rebuilds and reordering."""
+    identity = "|".join([
+        str(row.get("sec_number") or "").strip().casefold(),
+        str(row.get("filing_url") or "").strip().casefold(),
+        str(row.get("firm_name") or row.get("name") or "").strip().casefold(),
+    ])
+    return hashlib.sha256(identity.encode("utf-8")).hexdigest()[:20]
+
+
+def load_review_state():
+    if not os.path.exists(REVIEW_STATE_FILE):
+        return {}
+    try:
+        with open(REVIEW_STATE_FILE, "r", encoding="utf-8") as handle:
+            payload = json.load(handle)
+        return payload if isinstance(payload, dict) else {}
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def save_review_state(state):
+    directory = os.path.dirname(REVIEW_STATE_FILE)
+    fd, temporary_path = tempfile.mkstemp(prefix="alamat-review-", suffix=".json", dir=directory)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump(state, handle, indent=2, sort_keys=True)
+            handle.write("\n")
+        os.replace(temporary_path, REVIEW_STATE_FILE)
+    except Exception:
+        try:
+            os.unlink(temporary_path)
+        except FileNotFoundError:
+            pass
+        raise
+
+
+def default_workflow_bucket(row):
+    if row.get("record_type") == "unresolved_vc_filing":
+        return "needs_identity"
+    if row.get("backlog_bucket") == "established_manager_watchlist":
+        return "watchlist"
+    if row.get("manager_status_code") == "likely_new":
+        return "likely_new_vc"
+    return "needs_identity"
+
+
+def prepare_backlog_for_display(row, index=0, review_state=None):
     """Add stable browser-only metadata to a research-backlog row.
 
     Backlog rows are deliberately still unverified.  The URLs in this view are
     search routes, not assertions that a person or company identity is correct.
     """
     display_row = dict(row)
-    display_row["backlog_id"] = f"backlog-{index}"
+    stable_key = backlog_key(display_row)
+    decision = (review_state or {}).get(stable_key, {})
+    display_row["backlog_id"] = f"backlog-{stable_key}"
+    display_row["workflow_bucket"] = decision.get("workflow_bucket") or default_workflow_bucket(display_row)
+    display_row["workflow_note"] = decision.get("note", "")
+    display_row["workflow_updated_at"] = decision.get("updated_at", "")
     display_row["linkedin_search_firm"] = linkedin_search_firm(
         display_row.get("firm_name") or display_row.get("name")
     )
@@ -211,11 +267,15 @@ def get_research_backlog():
     rows = []
     unresolved_rows = []
     counts = {}
+    workflow_counts = {}
     try:
+        review_state = load_review_state()
         with open(BACKLOG_FILE, "r", encoding="utf-8") as f:
             reader = csv.DictReader(f)
             for index, row in enumerate(reader):
-                prepared = prepare_backlog_for_display(row, index)
+                prepared = prepare_backlog_for_display(row, index, review_state)
+                workflow_bucket = prepared.get("workflow_bucket") or "needs_identity"
+                workflow_counts[workflow_bucket] = workflow_counts.get(workflow_bucket, 0) + 1
                 if prepared.get("record_type") == "unresolved_vc_filing":
                     unresolved_rows.append(prepared)
                 else:
@@ -229,8 +289,38 @@ def get_research_backlog():
         "rows": rows,
         "total": len(rows),
         "counts": counts,
+        "workflow_counts": workflow_counts,
         "unresolved_rows": unresolved_rows,
         "unresolved_total": len(unresolved_rows),
+    })
+
+
+@app.route("/api/backlog/<backlog_id>/bucket", methods=["POST"])
+def set_backlog_bucket(backlog_id):
+    """Persist a user's research decision separately from regenerated source data."""
+    stable_key = str(backlog_id or "").removeprefix("backlog-")
+    if not re.fullmatch(r"[0-9a-f]{20}", stable_key):
+        return jsonify({"error": "Invalid backlog identifier."}), 400
+
+    data = request.get_json(silent=True) or {}
+    workflow_bucket = str(data.get("workflow_bucket") or "").strip()
+    allowed = {"needs_identity", "likely_new_vc", "watchlist"}
+    if workflow_bucket not in allowed:
+        return jsonify({"error": "Invalid workflow bucket."}), 400
+
+    with review_state_lock:
+        state = load_review_state()
+        state[stable_key] = {
+            "workflow_bucket": workflow_bucket,
+            "note": str(data.get("note") or "").strip()[:500],
+            "updated_at": date.today().isoformat(),
+        }
+        save_review_state(state)
+
+    return jsonify({
+        "status": "success",
+        "backlog_id": f"backlog-{stable_key}",
+        "workflow_bucket": workflow_bucket,
     })
 
 
