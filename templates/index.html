@@ -1210,6 +1210,43 @@
                 font-size: 1.55rem;
             }
         }
+        .mobile-search-toggle { display: none; }
+        @media (max-width: 768px) {
+            body { -webkit-text-size-adjust: 100%; }
+            .workspace { grid-template-columns: minmax(0, 1fr); }
+            .workspace > *, .panel-header, .panel-header-actions,
+            .mobile-lead-card, .mobile-card-body, .search-wrapper { min-width: 0; }
+            .view-switcher { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .view-switcher button { min-width: 0; min-height: 48px; white-space: normal; }
+            .view-switcher button:last-child:nth-child(odd) { grid-column: 1 / -1; }
+            .search-input, select { font-size: 16px; width: 100%; min-width: 0; min-height: 48px; }
+            .search-filter-bar { position: static; }
+            .mobile-search-toggle {
+                display: block; width: 100%; min-height: 48px; text-align: left;
+                padding: 10px 12px; border: 1px solid var(--border-glass);
+                border-radius: 10px; background: var(--bg-secondary); color: var(--text-main);
+            }
+            .filter-tags { display: none; }
+            .filter-tags.phone-expanded { display: flex; flex-wrap: wrap; overflow: visible; gap: 8px; }
+            .filter-tag { min-height: 46px; white-space: normal; text-align: left; max-width: 100%; }
+            .mobile-card-title, .mobile-card-meta, .lead-associated, .lead-note,
+            .detail-name, .detail-subtitle { overflow-wrap: anywhere; }
+            .mobile-card-top { flex-wrap: wrap; gap: 8px; }
+            .mobile-card-title { flex-basis: 100%; }
+            .mobile-card-button { width: 100%; min-width: 0; text-align: left; }
+            .right-sidebar { min-width: 0; }
+            .detail-pane.active {
+                height: 100dvh; max-height: 100dvh; box-sizing: border-box;
+                padding-top: max(12px, env(safe-area-inset-top));
+                -webkit-overflow-scrolling: touch;
+            }
+            .action-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .action-grid .btn-action { min-width: 0; min-height: 52px; white-space: normal; text-align: center; font-size: 13px; }
+            .lead-facts-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .lead-fact { min-width: 0; overflow-wrap: anywhere; }
+            #detail-placeholder, .console-panel { display: none; }
+            .metrics-grid { margin-inline: 0; padding-inline: 0; }
+        }
     </style>
 </head>
 <body>
@@ -1316,6 +1353,7 @@
                         <span class="search-icon">🔍</span>
                         <input type="text" id="search-input" class="search-input" placeholder="Search firm, contact, signal..." oninput="filterData()">
                     </div>
+                    <button type="button" class="mobile-search-toggle" aria-expanded="false" aria-controls="filter-tags" onclick="const expanded=document.getElementById('filter-tags').classList.toggle('phone-expanded'); this.setAttribute('aria-expanded',String(expanded)); this.textContent=expanded?'Hide filters':'Show filters';">Show filters</button>
                     <div class="filter-tags" id="filter-tags">
                         <button class="filter-tag active" data-filter-group="run" onclick="setRunFilter('all', this)">All Runs</button>
                         <button class="filter-tag" data-filter-group="run" onclick="setRunFilter('new', this)">New This Run</button>
