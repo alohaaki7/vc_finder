@@ -1,4 +1,3 @@
-import base64
 import csv
 import os
 import tempfile
@@ -150,13 +149,9 @@ class FakeResponse:
         pass
 
 
-DASH_AUTH = {"Authorization": "Basic " + base64.b64encode(b"me:dash").decode()}
-
-
 class HostedRunTests(unittest.TestCase):
     def hosted(self, **extra):
-        values = {"HOSTED": True, "GITHUB_TOKEN": "token", "RUNS_ENABLED": True, "RUN_PASSWORD": "",
-                  "DASHBOARD_PASSWORD": "dash"}
+        values = {"HOSTED": True, "GITHUB_TOKEN": "token", "RUNS_ENABLED": True, "RUN_PASSWORD": ""}
         values.update(extra)
         return patch.multiple(server, **values)
 
@@ -171,7 +166,7 @@ class HostedRunTests(unittest.TestCase):
 
         with self.hosted(), patch("server.requests.request", side_effect=fake_request):
             response = server.app.test_client().post(
-                "/api/run", json={"type": "vc", "days": "90", "min_size": "0"}, headers=DASH_AUTH
+                "/api/run", json={"type": "vc", "days": "90", "min_size": "0"}
             )
 
         self.assertEqual(response.status_code, 200)
@@ -183,12 +178,12 @@ class HostedRunTests(unittest.TestCase):
     def test_hosted_run_refuses_while_github_run_is_active(self):
         active = FakeResponse(payload={"workflow_runs": [{"status": "in_progress"}]})
         with self.hosted(), patch("server.requests.request", return_value=active):
-            response = server.app.test_client().post("/api/run", json={"type": "vc"}, headers=DASH_AUTH)
+            response = server.app.test_client().post("/api/run", json={"type": "vc"})
         self.assertEqual(response.status_code, 400)
 
     def test_hosted_run_requires_password_when_configured(self):
         with self.hosted(RUN_PASSWORD="secret"), patch("server.requests.request") as request_mock:
-            response = server.app.test_client().post("/api/run", json={"type": "vc"}, headers=DASH_AUTH)
+            response = server.app.test_client().post("/api/run", json={"type": "vc"})
         self.assertEqual(response.status_code, 401)
         request_mock.assert_not_called()
 
@@ -197,9 +192,7 @@ class HostedRunTests(unittest.TestCase):
             {"status": "completed", "conclusion": "success", "created_at": "2026-09-25T10:00:00Z"}
         ]})
         with self.hosted(), patch("server.requests.request", return_value=old_run):
-            data = server.app.test_client().get(
-                "/api/logs?since=2026-09-25T12:00:00Z", headers=DASH_AUTH
-            ).get_json()
+            data = server.app.test_client().get("/api/logs?since=2026-09-25T12:00:00Z").get_json()
         self.assertTrue(data["running"])
 
 
