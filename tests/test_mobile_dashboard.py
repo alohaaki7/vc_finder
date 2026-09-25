@@ -17,9 +17,20 @@ class MobileDashboardTests(unittest.TestCase):
 
     def test_phone_details_open_as_a_closeable_sheet(self):
         self.assertIn('class="detail-close" id="detail-close"', self.template)
-        self.assertIn("function closeLeadDetail()", self.template)
+        self.assertIn("function closeLeadDetail(", self.template)
         self.assertIn("body.mobile-detail-open", self.template)
         self.assertIn("min-height: 100dvh", self.template)
+
+    def test_phone_profile_has_back_and_next_navigation(self):
+        self.assertIn('id="detail-back"', self.template)
+        self.assertIn('onclick="stepLead(1)"', self.template)
+        self.assertIn("history.pushState({ leadDetail: true }", self.template)
+        self.assertIn("window.addEventListener('popstate'", self.template)
+
+    def test_phone_list_has_quick_views_and_card_google_button(self):
+        self.assertIn('id="mobile-quick-filters"', self.template)
+        self.assertIn("setQuickView('not_raised')", self.template)
+        self.assertIn("google.className = 'mobile-card-google'", self.template)
 
     def test_mobile_controls_are_collapsible_and_touch_sized(self):
         self.assertIn('id="pipeline-mobile-toggle"', self.template)
