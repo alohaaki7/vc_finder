@@ -17,7 +17,7 @@ from datetime import date, datetime, timezone
 from flask import Flask, jsonify, request, send_from_directory, render_template_string
 from pipeline import clean_firm_name, extract_related_name, is_entity_identity, reassess_saved_lead, run_pipeline
 from build_research_backlog import build as build_research_backlog, build_rows as build_research_backlog_rows
-from lead_signals import AdvIndex, early_signal, sec_people
+from lead_signals import AdvIndex, early_signal, mark_fund2_raises, sec_people
 from pipeline import normalize_phone
 
 app = Flask(__name__, static_folder="templates")
@@ -108,6 +108,7 @@ def load_display_leads():
         phone_counts[phone] = phone_counts.get(phone, 0) + 1
     for lead in leads:
         lead.update(adv_index.match(lead, lead["linkedin_search_firm"], phone_counts) or {})
+    mark_fund2_raises(leads)
 
     _leads_cache.update(key=key, leads=leads)
     return leads

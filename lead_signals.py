@@ -3,6 +3,7 @@
 - `early_signal`: whether the fund has taken money yet, from the Form D first-sale date.
 - `sec_people`: the human names listed on a Form D, skipping GP and management entities.
 - `AdvIndex`: links a Form D lead to an SEC adviser (Form ADV) registration.
+- `is_fund2_raise` / `mark_fund2_raises`: managers raising a second main venture fund.
 
 These are research aids. A match is a pointer to check, not a verified identity.
 """
@@ -14,6 +15,7 @@ import re
 from datetime import datetime
 
 from pipeline import (
+    FUND_VEHICLE_PATTERN,
     extract_related_name,
     is_entity_identity,
     manager_brand_tokens,
@@ -22,6 +24,15 @@ from pipeline import (
 
 
 JUST_RAISED_DAYS = 30
+
+# Side vehicles and share classes next to a main Fund II, e.g. "Fund II Parallel",
+# "Opportunity Fund II", "Fund II-A". They belong to a manager already in the list
+# or to an established platform, so they are not counted as a second-fund raise.
+FUND2_SIDE_VEHICLE_PATTERN = re.compile(
+    r"\b(parallel|aggregator|feeder|offshore|co-?invest\w*|opportunit\w*|strategic|debt|"
+    r"friends|executive|annex|sidecar|continuation|select|series\s+[a-z])\b|\b(ii|2)-[a-z]+\b",
+    re.IGNORECASE,
+)
 
 
 def early_signal(row):
@@ -43,7 +54,8 @@ def clean_person_name(raw):
     name = html.unescape(extract_related_name(raw))
     name = re.sub(r"^(?:n/?a|none(?:\s+none)?|general partner(?: of the general partner)?|management company)\s+",
                   "", name, flags=re.IGNORECASE)
-    if not name or "&" in name or is_entity_identity(name) or len(name.split()) < 2:
+    if (not name or "&" in name or is_entity_identity(name) or len(name.split()) < 2
+            or re.search(r"\b(limited|corporation|trust|foundation)\b", name, re.IGNORECASE)):
         return ""
     return name.title() if name.isupper() else name
 
@@ -151,3 +163,31 @@ def same_brand(first, second):
     "Lightcone Venture Capital I GP LLC" and "Lightcone Ventures" do."""
     tokens = set(manager_brand_tokens(first))
     return bool(tokens) and any(len(t) >= 3 for t in tokens) and tokens == set(manager_brand_tokens(second))
+
+
+def is_fund2_raise(row):
+    """True for a manager's second main venture fund, excluding side vehicles."""
+    name = str(row.get("name") or row.get("firm_name") or "")
+    return (
+        row.get("fund_stage") == "Fund II"
+        and row.get("manager_status_code") != "not_vc"
+        and "venture capital fund" in str(row.get("issues") or "").lower()
+        and not FUND_VEHICLE_PATTERN.search(name)
+        and not FUND2_SIDE_VEHICLE_PATTERN.search(name)
+    )
+
+
+def mark_fund2_raises(leads):
+    """Set `fund2_raise` on each lead, keeping only the newest filing per manager brand."""
+    newest = {}
+    for lead in leads:
+        lead["fund2_raise"] = False
+        if not is_fund2_raise(lead):
+            continue
+        key = re.sub(r"\s+(ii|2)$", "", str(lead.get("linkedin_search_firm") or lead.get("firm_name") or "").strip().lower())
+        current = newest.get(key)
+        if current is None or lead.get("filing_date", "") > current.get("filing_date", ""):
+            newest[key] = lead
+    for lead in newest.values():
+        lead["fund2_raise"] = True
+    return leads
