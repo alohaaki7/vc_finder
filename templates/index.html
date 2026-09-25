@@ -1324,7 +1324,7 @@
             <div class="metric-card m-fund">
                 <span class="metric-title">Needs Review</span>
                 <span class="metric-value" id="stat-us-based">-</span>
-                <span class="metric-desc">Weak or incomplete identity check</span>
+                <span class="metric-desc" id="stat-review-desc">Weak or incomplete identity check</span>
             </div>
         </div>
 
@@ -1531,6 +1531,8 @@
                 document.getElementById('stat-emails').textContent = stats.likely_new_firms;
                 document.getElementById('stat-noweb').textContent = stats.existing_managers;
                 document.getElementById('stat-us-based').textContent = stats.needs_review;
+                document.getElementById('stat-review-desc').textContent =
+                    `Weak identity check · ${stats.not_checked || 0} older rows unchecked · ${stats.not_vc || 0} non-VC hidden`;
             } catch (e) {
                 console.error("Error fetching stats:", e);
             }
@@ -1691,8 +1693,7 @@
         }
 
         function managerStatusCode(lead) {
-            const code = lead.manager_status_code || 'not_checked';
-            return code === 'not_checked' ? 'needs_review' : code;
+            return lead.manager_status_code || 'not_checked';
         }
 
         function activateFilterButton(group, el, value) {
@@ -2229,6 +2230,14 @@
             try {
                 const r = await fetch('/api/status?_t=' + Date.now());
                 const status = await r.json();
+
+                if (status.can_run === false) {
+                    const btn = document.getElementById('btn-run');
+                    btn.disabled = true;
+                    btn.title = 'Data refreshes daily through GitHub Actions';
+                    document.getElementById('run-text').textContent = 'Auto-refreshes daily';
+                    return;
+                }
                 
                 if (status.running) {
                     document.getElementById('btn-run').disabled = true;

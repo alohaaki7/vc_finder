@@ -13,7 +13,7 @@ import re
 import threading
 from datetime import date, datetime, timezone
 from flask import Flask, jsonify, request, send_from_directory, render_template_string
-from pipeline import clean_firm_name, extract_related_name, is_entity_identity, run_pipeline
+from pipeline import clean_firm_name, extract_related_name, is_entity_identity, reassess_saved_lead, run_pipeline
 from build_research_backlog import build as build_research_backlog, build_rows as build_research_backlog_rows
 
 app = Flask(__name__, static_folder="templates")
@@ -28,6 +28,9 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 LEADS_FILE = os.path.join(SCRIPT_DIR, "ALL_VC_LEADS.csv")
 BACKLOG_FILE = os.path.join(SCRIPT_DIR, "ALAMAT_RESEARCH_BACKLOG.csv")
 LOGS_FILE = os.path.join(SCRIPT_DIR, "pipeline_run.log")
+# Vercel serverless functions stop after each response and discard written files,
+# so pipeline runs there never finish. The daily GitHub Action refreshes data instead.
+RUNS_ENABLED = not os.environ.get("VERCEL")
 
 # Lock and state for running pipeline
 pipeline_lock = threading.Lock()
@@ -36,7 +39,8 @@ pipeline_status = {
     "current_type": "",
     "current_days": 30,
     "progress": "",
-    "error": ""
+    "error": "",
+    "can_run": RUNS_ENABLED
 }
 
 # Standard template directory configuration
@@ -47,7 +51,7 @@ if not os.path.exists(TEMPLATE_DIR):
 
 def prepare_lead_for_display(row):
     """Use a parent manager as the display label for legacy SEC series rows."""
-    display_row = dict(row)
+    display_row = reassess_saved_lead(dict(row))
     issuer_name = str(display_row.get("name") or "")
     if "series of" in issuer_name.casefold():
         manager_name = clean_firm_name(issuer_name)
@@ -297,7 +301,9 @@ def get_stats():
             "new_since_last_run": 0,
             "likely_new_firms": 0,
             "existing_managers": 0,
-            "needs_review": 0
+            "needs_review": 0,
+            "not_checked": 0,
+            "not_vc": 0
         })
 
     total = 0
@@ -305,6 +311,8 @@ def get_stats():
     likely_new_firms = 0
     existing_managers = 0
     needs_review = 0
+    not_checked = 0
+    not_vc = 0
 
     try:
         with open(LEADS_FILE, "r", encoding="utf-8") as f:
@@ -314,13 +322,17 @@ def get_stats():
                 if str(row.get("is_new_since_last_run", "")).lower() == "yes":
                     new_since_last_run += 1
 
-                manager_status = row.get("manager_status_code", "not_checked")
+                manager_status = reassess_saved_lead(row).get("manager_status_code") or "not_checked"
                 if manager_status == "likely_new":
                     likely_new_firms += 1
                 elif manager_status == "existing_manager":
                     existing_managers += 1
-                else:
+                elif manager_status == "needs_review":
                     needs_review += 1
+                elif manager_status == "not_vc":
+                    not_vc += 1
+                else:
+                    not_checked += 1
 
     except Exception as e:
         return jsonify({"error": f"Error gathering stats: {e}"}), 500
@@ -330,7 +342,9 @@ def get_stats():
         "new_since_last_run": new_since_last_run,
         "likely_new_firms": likely_new_firms,
         "existing_managers": existing_managers,
-        "needs_review": needs_review
+        "needs_review": needs_review,
+        "not_checked": not_checked,
+        "not_vc": not_vc
     })
 
 
@@ -338,6 +352,11 @@ def get_stats():
 def run_pipeline_api():
     """Trigger the pipeline script."""
     global pipeline_status
+    if not RUNS_ENABLED:
+        return jsonify({
+            "status": "error",
+            "message": "Runs are disabled on the hosted site. Data refreshes daily through GitHub Actions."
+        }), 403
     if pipeline_status["running"]:
         return jsonify({"status": "error", "message": "Pipeline is already running."}), 400
 

@@ -340,9 +340,14 @@ def check_related_people_roles(related_people):
 
 HISTORY_START_DATE = "2001-01-01"
 FUND_VEHICLE_PATTERN = re.compile(
-    r"\b(a\s+series\s+of|series\s+of|special\s+purpose\s+vehicle|spv|syndicate|co[-\s]?invest(?:ment)?\s+vehicle)\b",
+    r"\b(a\s+series\s+of|series\s+of|series\s+[a-z]?\d+[a-z]?|special\s+purpose\s+vehicle|spv\s*\d*|syndicate|"
+    r"co[-\s]?invest(?:ment)?\s+vehicle|joint\s+venture)\b",
     re.IGNORECASE
 )
+# Pooled fund types that are never venture capital.
+NON_VC_FUND_TYPES = {"hedge fund"}
+# Vague SEC industry groups that some venture funds pick; review rather than exclude.
+AMBIGUOUS_INDUSTRIES = {"pooled investment fund", "investing", "other", "other technology"}
 ENTITY_IDENTITY_PATTERN = re.compile(
     r"\b(llc|l\.l\.c\.?|lp|l\.p\.?|ltd|inc|corp|company|management|manager|"
     r"advisers?|advisors?|partners?|capital|ventures?|fund|gp|group|holdings?)\b",
@@ -776,6 +781,18 @@ def assess_manager_novelty(filing, xml_info, fund_stage, history):
         reason = history["reason"] if history.get("weak_match") else (
             "Fund II indicates a prior fund even when no matching older SEC filing is available."
         )
+    elif fund_stage == "Later Fund":
+        code = "existing_manager"
+        status = "Existing manager"
+        score = 5
+        confidence = "Medium"
+        reason = "A third or later fund in the issuer name indicates an established manager."
+    elif non_vc_reason(xml_info.get("industry_group"), xml_info.get("investment_fund_type")):
+        code = "not_vc"
+        status = "Not a VC fund"
+        score = 0
+        confidence = "High"
+        reason = non_vc_reason(xml_info.get("industry_group"), xml_info.get("investment_fund_type"))
     elif FUND_VEHICLE_PATTERN.search(firm_name):
         code = "needs_review"
         status = "Needs review"
@@ -788,6 +805,21 @@ def assess_manager_novelty(filing, xml_info, fund_stage, history):
         score = 40
         confidence = "Low"
         reason = history["reason"]
+    elif str(xml_info.get("investment_fund_type") or "").strip().lower() == "private equity fund":
+        code = "needs_review"
+        status = "Needs review"
+        score = 45
+        confidence = "Low"
+        reason = "SEC fund type is Private Equity Fund; confirm it invests in startups."
+    elif str(xml_info.get("industry_group") or "").strip().lower() in AMBIGUOUS_INDUSTRIES - {"pooled investment fund"}:
+        code = "needs_review"
+        status = "Needs review"
+        score = 45
+        confidence = "Low"
+        reason = (
+            f"SEC industry is {xml_info.get('industry_group')}, not a pooled venture fund; "
+            "confirm it is a VC firm."
+        )
     elif fund_stage == "Fund I":
         code = "likely_new"
         status = "Likely new firm"
@@ -829,6 +861,34 @@ FOLLOW_ON_FUND_PATTERN = re.compile(
 )
 
 
+LEGAL_SUFFIX_PATTERN = re.compile(
+    r"[\s,]+(?:l\.?\s?p\.?|l\.?\s?l\.?\s?c\.?|ltd\.?|inc\.?|co\.?)$",
+    re.IGNORECASE
+)
+TRAILING_SEQUENCE_PATTERN = re.compile(
+    r"(?:^|[\s-])(i{1,3}|iv|v|vi{0,3}|ix|[1-9])$",
+    re.IGNORECASE
+)
+ROMAN_NUMERALS = {"i": 1, "ii": 2, "iii": 3, "iv": 4, "v": 5, "vi": 6, "vii": 7, "viii": 8, "ix": 9}
+
+
+def trailing_fund_number(firm_name):
+    """Read a sequence number from names like "Noar Ventures II, LP" or "Prometheus-II"."""
+    name = str(firm_name or "").strip()
+    while True:
+        stripped = LEGAL_SUFFIX_PATTERN.sub("", name).strip(" ,")
+        if stripped == name:
+            break
+        name = stripped
+    if FUND_VEHICLE_PATTERN.search(name):
+        return None
+    match = TRAILING_SEQUENCE_PATTERN.search(name)
+    if not match or len(name.split()) < 2 and "-" not in name:
+        return None
+    token = match.group(1).lower()
+    return int(token) if token.isdigit() else ROMAN_NUMERALS[token]
+
+
 def classify_fund_stage(firm_name):
     """Classify the fund stage from the issuer/fund name."""
     if FUND_II_PATTERN.search(firm_name):
@@ -837,7 +897,79 @@ def classify_fund_stage(firm_name):
         return "Fund I"
     if FOLLOW_ON_FUND_PATTERN.search(firm_name):
         return "Later Fund"
+    number = trailing_fund_number(firm_name)
+    if number == 1:
+        return "Fund I"
+    if number == 2:
+        return "Fund II"
+    if number and number > 2:
+        return "Later Fund"
     return "Emerging Fund"
+
+
+def non_vc_reason(industry_group, fund_type):
+    """Explain why SEC metadata rules out a venture fund, or return an empty string."""
+    industry = str(industry_group or "").strip().lower()
+    kind = str(fund_type or "").strip().lower()
+    if industry and industry not in AMBIGUOUS_INDUSTRIES:
+        return f"SEC industry is {industry_group}, not a pooled venture fund."
+    if kind in NON_VC_FUND_TYPES:
+        return f"SEC fund type is {fund_type}, not venture capital."
+    return ""
+
+
+def split_saved_issues(value):
+    """Split the saved "industry - fund type" column back into its SEC parts."""
+    industry, _, fund_type = str(value or "").partition(" - ")
+    return industry.strip(), fund_type.strip()
+
+
+def reassess_saved_lead(row):
+    """Re-apply name and SEC-category rules to a saved row without new SEC requests.
+
+    Saved rows keep their original verdict unless these rules show the filing is a
+    follow-on fund, a deal vehicle, or not a venture fund at all.
+    """
+    name = str(row.get("name") or row.get("firm_name") or "")
+    code = row.get("manager_status_code") or "not_checked"
+    fund_stage = classify_fund_stage(name)
+    row["fund_stage"] = fund_stage
+    if code == "existing_manager":
+        return row
+
+    industry, fund_type = split_saved_issues(row.get("issues"))
+    override = None
+    reason = non_vc_reason(industry, fund_type)
+    if reason:
+        override = ("not_vc", "Not a VC fund", 0, "High", reason)
+    elif code != "likely_new":
+        return row
+    elif fund_stage in {"Fund II", "Later Fund"}:
+        override = (
+            "existing_manager", "Existing manager", 10, "Medium",
+            f"{fund_stage} in the issuer name indicates an earlier fund."
+        )
+    elif FUND_VEHICLE_PATTERN.search(name):
+        override = (
+            "needs_review", "Needs review", 25, "High",
+            "Series/SPV/joint-venture structure is not treated as a standalone new VC firm."
+        )
+    elif fund_type.lower() == "private equity fund":
+        override = (
+            "needs_review", "Needs review", 45, "Low",
+            "SEC fund type is Private Equity Fund; confirm it invests in startups."
+        )
+    elif industry.lower() in AMBIGUOUS_INDUSTRIES - {"pooled investment fund"}:
+        override = (
+            "needs_review", "Needs review", 45, "Low",
+            f"SEC industry is {industry}, not a pooled venture fund; confirm it is a VC firm."
+        )
+
+    if override:
+        (row["manager_status_code"], row["manager_status"], row["manager_novelty_score"],
+         row["manager_confidence"], row["manager_history_reason"]) = override
+        row["signal_type"] = row["manager_status"]
+    return row
 
 
 def parse_sec_date(value):
@@ -1468,6 +1600,7 @@ def run_pipeline(days=30, lead_type="vc", min_size=0, output_file="ALL_VC_LEADS.
                         row["manager_novelty_score"] = row.get("manager_novelty_score") or "0"
                         row["manager_confidence"] = row.get("manager_confidence") or "Unknown"
                         row["manager_history_reason"] = row.get("manager_history_reason") or "Run the pipeline again to check SEC manager history."
+                        reassess_saved_lead(row)
                         all_leads_dict[row["crd"]] = row
         except Exception:
             pass
@@ -1504,6 +1637,7 @@ def run_pipeline(days=30, lead_type="vc", min_size=0, output_file="ALL_VC_LEADS.
             "needs_review": 2,
             "not_checked": 1,
             "existing_manager": 0,
+            "not_vc": -1,
         }.get(str(x.get("manager_status_code", "")), 1)
         is_new = 1 if str(x.get("is_new_since_last_run", "")).lower() == "yes" else 0
         try:
