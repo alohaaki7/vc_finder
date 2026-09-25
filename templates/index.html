@@ -2033,7 +2033,7 @@
             const link = document.getElementById(id);
             link.textContent = label;
             link.classList.toggle('is-search', isSearch);
-            link.classList.toggle('btn-primary-action', id === 'link-linkedin-person' && !isSearch);
+            link.classList.toggle('btn-primary-action', id === 'link-linkedin-person');
             if (url) {
                 link.href = url;
                 link.removeAttribute('aria-disabled');
@@ -2048,6 +2048,22 @@
             return encoded
                 ? `https://www.linkedin.com/search/results/${type}/?keywords=${encoded}`
                 : '';
+        }
+
+        function fundSearchName(lead) {
+            // SEC legal name without the legal-entity suffix, e.g. "Vivace Longevity Fund I"
+            let name = String(lead.name || lead.firm_name || '').trim();
+            let previous;
+            do {
+                previous = name;
+                name = name.replace(/[\s,]+(l\.?\s?p\.?|l\.?\s?l\.?\s?c\.?|ltd\.?|inc\.?)$/i, '').trim();
+            } while (name !== previous);
+            return name;
+        }
+
+        function googleFundSearchUrl(lead) {
+            const name = fundSearchName(lead);
+            return name ? `https://www.google.com/search?q=${encodeURIComponent(`"${name}"`)}` : '';
         }
 
         function googleLinkedinSearchUrl(person, firm) {
@@ -2139,20 +2155,13 @@
             const searchFirm = String(lead.linkedin_search_firm || lead.firm_name || '').trim();
             const secPerson = String(lead.linkedin_search_person || '').trim();
             const managerCandidate = String(lead.linkedin_manager_candidate || '').trim();
-            const personQuery = (managerCandidate || secPerson)
-                ? `${managerCandidate || secPerson} ${searchFirm}`
-                : `${searchFirm} founder "general partner" "managing partner"`;
-            const personSearch = isBacklog
-                ? (validExternalUrl(lead.linkedin_search_url) || linkedinSearchUrl('people', personQuery))
-                : linkedinSearchUrl('people', personQuery);
             const companySearch = isBacklog
                 ? (validExternalUrl(lead.linkedin_company_search_url) || linkedinSearchUrl('companies', searchFirm))
                 : linkedinSearchUrl('companies', searchFirm);
             configureLeadAction(
                 'link-linkedin-person',
-                personExact || personSearch,
-                personExact ? 'Open verified manager LinkedIn' : (isBacklog ? 'Search SEC contact on LinkedIn' : 'Search decision-makers on LinkedIn'),
-                !personExact,
+                personExact || googleFundSearchUrl(lead),
+                personExact ? 'Open verified manager LinkedIn' : `Google "${fundSearchName(lead) || 'fund'}"`,
             );
             configureLeadAction(
                 'link-linkedin-company',
