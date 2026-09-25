@@ -1,6 +1,6 @@
 import unittest
 
-from lead_signals import AdvIndex, early_signal, same_brand, sec_people
+from lead_signals import AdvIndex, early_signal, is_fund2_raise, mark_fund2_raises, same_brand, sec_people
 
 
 def adv(crd, name, phone="", state="CA", registered="2026-08-21"):
@@ -64,6 +64,39 @@ class AdvMatchTests(unittest.TestCase):
     def test_same_brand(self):
         self.assertTrue(same_brand("Lightcone Venture Capital I GP LLC", "LIGHTCONE VENTURES"))
         self.assertFalse(same_brand("Serendipity Capital Global Quantum Technologies", "Quantum Capital Investment Group"))
+
+
+VC = "Pooled Investment Fund - Venture Capital Fund"
+
+
+def fund2(name, filed="2026-09-01", brand=None, issues=VC):
+    return {"name": name, "firm_name": name, "fund_stage": "Fund II", "issues": issues,
+            "manager_status_code": "existing_manager", "filing_date": filed,
+            "linkedin_search_firm": brand or name.split(" Fund")[0]}
+
+
+class Fund2RaiseTests(unittest.TestCase):
+    def test_main_second_venture_fund_counts(self):
+        self.assertTrue(is_fund2_raise(fund2("Incisive VC Fund II, LP")))
+
+    def test_side_vehicles_and_non_vc_types_do_not_count(self):
+        for name in ["Generational Partners Fund II Parallel, LP", "2am Ventures Opportunity Fund II, LP",
+                     "Valhalla Ventures Fund II-A LP", "Banner VC Co-Invest II, LP",
+                     "SOJA Ventures Investments LLC, Series G II"]:
+            self.assertFalse(is_fund2_raise(fund2(name)), name)
+        self.assertFalse(is_fund2_raise(fund2("Fortwest Capital Fund II, L.P.",
+                                              issues="Pooled Investment Fund - Private Equity Fund")))
+
+    def test_one_entry_per_manager(self):
+        leads = [fund2("Hanabi Capital Fund II, L.P.", "2026-08-01", "Hanabi Capital"),
+                 fund2("Hanabi Capital Fund II, L.P.", "2026-08-24", "Hanabi Capital"),
+                 fund2("Noar Ventures II, LP", "2026-09-21", "Noar Ventures II")]
+        mark_fund2_raises(leads)
+        self.assertEqual([lead["fund2_raise"] for lead in leads], [False, True, True])
+
+    def test_company_names_are_not_people(self):
+        row = {"all_contacts": "CHC II Limited (Director); Ye Zhang (Director)"}
+        self.assertEqual(sec_people(row), ["Ye Zhang"])
 
 
 if __name__ == "__main__":

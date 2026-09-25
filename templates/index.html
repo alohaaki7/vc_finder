@@ -555,6 +555,7 @@
         .badge-first { background: rgba(255, 0, 122, 0.1); color: var(--accent-pink); border: 1px solid rgba(255, 0, 122, 0.2); }
         .badge-new { background: rgba(0, 112, 243, 0.1); color: #70a1ff; border: 1px solid rgba(0, 112, 243, 0.2); }
         .badge-estab { background: rgba(156, 163, 175, 0.1); color: var(--text-muted); }
+        .badge-fund2 { background: rgba(255, 159, 67, 0.12); color: #ffb86b; border: 1px solid rgba(255, 159, 67, 0.3); }
         .badge-early { background: rgba(16, 185, 129, 0.12); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.25); }
         .lead-sub { display: block; margin-top: 0.2rem; font-size: 0.78rem; font-weight: 400; color: var(--text-muted); }
         .lead-sub .badge { margin-left: 0; margin-right: 0.35rem; }
@@ -1437,6 +1438,7 @@
                     <div class="mobile-quick-filters" id="mobile-quick-filters" role="group" aria-label="Quick views">
                         <button type="button" data-quick="not_raised" onclick="setQuickView('not_raised')">Not raised yet</button>
                         <button type="button" data-quick="likely_new" onclick="setQuickView('likely_new')">Likely new</button>
+                        <button type="button" data-quick="fund2" onclick="setQuickView('fund2')">Raising Fund II</button>
                         <button type="button" data-quick="needs_review" onclick="setQuickView('needs_review')">Needs review</button>
                         <button type="button" data-quick="all" onclick="setQuickView('all')">All</button>
                     </div>
@@ -1445,6 +1447,7 @@
                         <button class="filter-tag active" data-filter-group="run" onclick="setRunFilter('all', this)">All Runs</button>
                         <button class="filter-tag" data-filter-group="run" onclick="setRunFilter('new', this)">New This Run</button>
                         <button class="filter-tag" data-filter-group="run" onclick="setRunFilter('not_raised', this)">Not Raised Yet</button>
+                        <button class="filter-tag" data-filter-group="run" onclick="setRunFilter('fund2', this)">Raising Fund II</button>
                         <button class="filter-tag active" id="manager-filter-all" data-filter-group="manager" onclick="setManagerFilter('all', this)">All Manager States</button>
                         <button class="filter-tag" id="manager-filter-likely" data-filter-group="manager" onclick="setManagerFilter('likely_new', this)">Likely New Firms</button>
                         <button class="filter-tag" data-filter-group="manager" onclick="setManagerFilter('existing_manager', this)">Existing Managers</button>
@@ -1752,6 +1755,7 @@
                     <button class="filter-tag active" data-filter-group="run" onclick="setRunFilter('all', this)">All Runs</button>
                     <button class="filter-tag" data-filter-group="run" onclick="setRunFilter('new', this)">New This Run</button>
                         <button class="filter-tag" data-filter-group="run" onclick="setRunFilter('not_raised', this)">Not Raised Yet</button>
+                        <button class="filter-tag" data-filter-group="run" onclick="setRunFilter('fund2', this)">Raising Fund II</button>
                     <button class="filter-tag active" id="manager-filter-all" data-filter-group="manager" onclick="setManagerFilter('all', this)">All Manager States</button>
                     <button class="filter-tag" id="manager-filter-likely" data-filter-group="manager" onclick="setManagerFilter('likely_new', this)">Likely New Firms</button>
                     <button class="filter-tag" data-filter-group="manager" onclick="setManagerFilter('existing_manager', this)">Existing Managers</button>
@@ -1813,6 +1817,8 @@
 
         function setRunFilter(val, el) {
             runFilter = activateFilterButton('run', el, val);
+            // Fund II managers are existing managers, so the new-firm filter would hide them
+            if (runFilter === 'fund2') managerFilter = 'all';
             filterData();
         }
 
@@ -1829,6 +1835,7 @@
         const QUICK_VIEWS = {
             not_raised: { manager: 'likely_new', run: 'not_raised' },
             likely_new: { manager: 'likely_new', run: 'all' },
+            fund2: { manager: 'all', run: 'fund2' },
             needs_review: { manager: 'needs_review', run: 'all' },
             all: { manager: 'all', run: 'all' },
         };
@@ -1903,7 +1910,8 @@
 
                 const matchesRun = runFilter === 'all'
                     || (runFilter === 'new' && isNewLead(lead))
-                    || (runFilter === 'not_raised' && lead.early_signal === 'not_raised');
+                    || (runFilter === 'not_raised' && lead.early_signal === 'not_raised')
+                    || (runFilter === 'fund2' && lead.fund2_raise);
 
                 return matchesSearch && matchesManager && matchesStage && matchesRun;
             });
@@ -1963,6 +1971,7 @@
 
         function leadSignalBadges(lead) {
             const badges = [];
+            if (lead.fund2_raise) badges.push('<span class="badge badge-fund2">Raising Fund II</span>');
             if (lead.early_signal_label) badges.push(`<span class="badge badge-early">${escapeHtml(lead.early_signal_label)}</span>`);
             if (lead.adv_crd) badges.push(`<span class="badge badge-new">SEC adviser</span>`);
             return badges.join('');
@@ -2044,7 +2053,7 @@
                             <span class="mobile-card-top">
                                 <span class="mobile-card-title">${escapeHtml(title)}</span>
                             </span>
-                            <span class="lead-sub">${newBadge}${managerCode === 'likely_new' ? '' : `<span class="badge ${managerBadgeClass}">${escapeHtml(managerLabel)}</span>`}${leadSignalBadges(lead)}${escapeHtml(leadPeopleLine(lead))}</span>
+                            <span class="lead-sub">${newBadge}${managerCode === 'likely_new' || lead.fund2_raise ? '' : `<span class="badge ${managerBadgeClass}">${escapeHtml(managerLabel)}</span>`}${leadSignalBadges(lead)}${escapeHtml(leadPeopleLine(lead))}</span>
                             <span class="mobile-card-meta">
                                 <span>${escapeHtml(lead.fund_stage || 'Stage unknown')}</span>
                                 <span>${escapeHtml(location)}</span>
@@ -2282,6 +2291,7 @@
             document.getElementById('det-freshness').textContent = isBacklog
                 ? (lead.research_recommendation || 'Research the operating firm, decision-maker, launch evidence, and public presence.')
                 : [
+                    lead.fund2_raise ? 'Manager is raising a second main fund; check whether the site and brand look ready for larger investors.' : '',
                     lead.early_signal === 'not_raised' ? 'Fund has not made its first sale yet.' : '',
                     lead.early_signal === 'just_raised' ? `First sale ${lead.date_of_first_sale}, shortly before filing.` : '',
                     lead.freshness_reason || lead.manager_history_reason || lead.signal_type || 'Freshness evidence not recorded.',
