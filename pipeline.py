@@ -1485,6 +1485,11 @@ def run_pipeline(days=30, lead_type="vc", min_size=0, output_file="ALL_VC_LEADS.
                 logger(f"    ↳ Skipped: not a fresh {lead_type.upper()} target.")
                 continue
 
+            non_vc = non_vc_reason(xml_info.get("industry_group"), xml_info.get("investment_fund_type"))
+            if non_vc:
+                logger(f"    ↳ Dropped: {non_vc}")
+                continue
+
             history = find_manager_history(
                 c,
                 clean_name,
@@ -1600,7 +1605,8 @@ def run_pipeline(days=30, lead_type="vc", min_size=0, output_file="ALL_VC_LEADS.
                         row["manager_novelty_score"] = row.get("manager_novelty_score") or "0"
                         row["manager_confidence"] = row.get("manager_confidence") or "Unknown"
                         row["manager_history_reason"] = row.get("manager_history_reason") or "Run the pipeline again to check SEC manager history."
-                        reassess_saved_lead(row)
+                        if reassess_saved_lead(row)["manager_status_code"] == "not_vc":
+                            continue
                         all_leads_dict[row["crd"]] = row
         except Exception:
             pass
@@ -1637,7 +1643,6 @@ def run_pipeline(days=30, lead_type="vc", min_size=0, output_file="ALL_VC_LEADS.
             "needs_review": 2,
             "not_checked": 1,
             "existing_manager": 0,
-            "not_vc": -1,
         }.get(str(x.get("manager_status_code", "")), 1)
         is_new = 1 if str(x.get("is_new_since_last_run", "")).lower() == "yes" else 0
         try:

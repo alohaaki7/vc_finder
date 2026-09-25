@@ -1532,7 +1532,7 @@
                 document.getElementById('stat-noweb').textContent = stats.existing_managers;
                 document.getElementById('stat-us-based').textContent = stats.needs_review;
                 document.getElementById('stat-review-desc').textContent =
-                    `Weak identity check · ${stats.not_checked || 0} older rows unchecked · ${stats.not_vc || 0} non-VC hidden`;
+                    `Weak identity check · ${stats.not_checked || 0} older rows unchecked`;
             } catch (e) {
                 console.error("Error fetching stats:", e);
             }
@@ -2159,7 +2159,17 @@
         // 5. Trigger Pipeline & Read Logs
         let logInterval = null;
 
-        async function triggerPipeline() {
+        let runStartedAt = '';
+
+        function savedRunPassword() {
+            try { return sessionStorage.getItem('runPassword') || ''; } catch (e) { return ''; }
+        }
+
+        function saveRunPassword(value) {
+            try { sessionStorage.setItem('runPassword', value); } catch (e) {}
+        }
+
+        async function triggerPipeline(password = savedRunPassword()) {
             const type = document.getElementById('lead-type').value;
             const days = document.getElementById('lead-days').value;
             const min_size = document.getElementById('lead-size').value;
@@ -2172,22 +2182,34 @@
             try {
                 const r = await fetch('/api/run', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', 'X-Run-Password': password },
                     body: JSON.stringify({ type, days, min_size })
                 });
                 const res = await r.json();
+
+                if (res.needs_password) {
+                    btn.disabled = false;
+                    runText.textContent = "Run Pipeline";
+                    const entered = prompt('Password to run the pipeline:');
+                    if (entered) {
+                        saveRunPassword(entered);
+                        return triggerPipeline(entered);
+                    }
+                    return;
+                }
                 
                 if (res.status === 'success') {
+                    runStartedAt = res.started_at || '';
                     // Set logging status active
                     document.getElementById('console-status-dot').className = 'pulse-dot';
                     document.getElementById('console-status-text').textContent = 'Scouting...';
                     
                     // Clear previous logs in UI
-                    document.getElementById('console-log').textContent = '';
+                    document.getElementById('console-log').textContent = res.message || '';
                     
-                    // Start polling logs
+                    // Start polling logs; GitHub runs are slower, so poll them less often
                     if (logInterval) clearInterval(logInterval);
-                    logInterval = setInterval(fetchLogs, 1500);
+                    logInterval = setInterval(fetchLogs, runStartedAt ? 10000 : 1500);
                 } else {
                     alert('Error starting pipeline: ' + res.message);
                     btn.disabled = false;
@@ -2202,7 +2224,8 @@
 
         async function fetchLogs() {
             try {
-                const r = await fetch('/api/logs?_t=' + Date.now());
+                const since = runStartedAt ? '&since=' + encodeURIComponent(runStartedAt) : '';
+                const r = await fetch('/api/logs?_t=' + Date.now() + since);
                 const data = await r.json();
                 const consoleLog = document.getElementById('console-log');
                 
@@ -2211,6 +2234,7 @@
 
                 if (!data.running) {
                     clearInterval(logInterval);
+                    runStartedAt = '';
                     document.getElementById('console-status-dot').className = 'pulse-dot inactive';
                     document.getElementById('console-status-text').textContent = 'Idle';
                     
@@ -2234,7 +2258,7 @@
                 if (status.can_run === false) {
                     const btn = document.getElementById('btn-run');
                     btn.disabled = true;
-                    btn.title = 'Data refreshes daily through GitHub Actions';
+                    btn.title = 'Add GITHUB_DISPATCH_TOKEN in Vercel to run from here';
                     document.getElementById('run-text').textContent = 'Auto-refreshes daily';
                     return;
                 }
@@ -2246,7 +2270,7 @@
                     document.getElementById('console-status-text').textContent = 'Scouting...';
                     
                     // Start polling
-                    logInterval = setInterval(fetchLogs, 1500);
+                    logInterval = setInterval(fetchLogs, status.hosted ? 10000 : 1500);
                 }
             } catch (e) {
                 console.error("Error checking status:", e);

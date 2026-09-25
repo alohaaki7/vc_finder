@@ -98,28 +98,117 @@ class SavedRowReassessmentTests(unittest.TestCase):
         self.assertEqual(reassess_saved_lead(row)["manager_status_code"], "existing_manager")
 
 
+def write_codes(path, codes):
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=["crd", "name", "manager_status_code", "is_new_since_last_run", "issues"])
+        writer.writeheader()
+        for index, (code, issues) in enumerate(codes):
+            writer.writerow({
+                "crd": str(index), "name": f"Firm {index} Fund I, LP", "manager_status_code": code,
+                "is_new_since_last_run": "no", "issues": issues,
+            })
+
+
+VC = "Pooled Investment Fund - Venture Capital Fund"
+
+
 class ServerStatsTests(unittest.TestCase):
-    def test_unchecked_and_non_vc_rows_are_not_counted_as_needs_review(self):
-        codes = ["likely_new", "needs_review", "not_checked", "not_checked", "not_vc", "existing_manager"]
+    def test_non_vc_rows_are_hidden_and_unchecked_rows_counted_separately(self):
+        codes = [("likely_new", VC), ("needs_review", VC), ("not_checked", VC), ("not_checked", VC),
+                 ("likely_new", "Oil and Gas - Unknown"), ("existing_manager", VC)]
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "leads.csv")
-            with open(path, "w", newline="", encoding="utf-8") as f:
-                writer = csv.DictWriter(f, fieldnames=["manager_status_code", "is_new_since_last_run"])
-                writer.writeheader()
-                for code in codes:
-                    writer.writerow({"manager_status_code": code, "is_new_since_last_run": "no"})
+            write_codes(path, codes)
             with patch.object(server, "LEADS_FILE", path):
-                stats = server.app.test_client().get("/api/stats").get_json()
+                client = server.app.test_client()
+                stats = client.get("/api/stats").get_json()
+                leads = client.get("/api/leads").get_json()
 
+        self.assertEqual(stats["total_leads"], 5)
         self.assertEqual(stats["needs_review"], 1)
         self.assertEqual(stats["not_checked"], 2)
-        self.assertEqual(stats["not_vc"], 1)
         self.assertEqual(stats["likely_new_firms"], 1)
+        self.assertNotIn("not_vc", {lead["manager_status_code"] for lead in leads})
 
     def test_runs_are_refused_when_disabled(self):
         with patch.object(server, "RUNS_ENABLED", False):
             response = server.app.test_client().post("/api/run", json={"type": "vc"})
         self.assertEqual(response.status_code, 403)
+
+
+class FakeResponse:
+    def __init__(self, status_code=200, payload=None):
+        self.status_code = status_code
+        self._payload = payload or {}
+        self.text = ""
+
+    def json(self):
+        return self._payload
+
+    def raise_for_status(self):
+        pass
+
+
+class HostedRunTests(unittest.TestCase):
+    def hosted(self, **extra):
+        values = {"HOSTED": True, "GITHUB_TOKEN": "token", "RUNS_ENABLED": True, "RUN_PASSWORD": ""}
+        values.update(extra)
+        return patch.multiple(server, **values)
+
+    def test_hosted_run_dispatches_github_workflow(self):
+        calls = []
+
+        def fake_request(method, url, **kwargs):
+            calls.append((method, url, kwargs.get("json")))
+            if method == "GET":
+                return FakeResponse(payload={"workflow_runs": [{"status": "completed"}]})
+            return FakeResponse(status_code=204)
+
+        with self.hosted(), patch("server.requests.request", side_effect=fake_request):
+            response = server.app.test_client().post(
+                "/api/run", json={"type": "vc", "days": "90", "min_size": "0"}
+            )
+
+        self.assertEqual(response.status_code, 200)
+        method, url, body = calls[-1]
+        self.assertEqual(method, "POST")
+        self.assertTrue(url.endswith("/refresh-sec-leads.yml/dispatches"))
+        self.assertEqual(body["inputs"], {"lead_type": "vc", "days": "90", "min_size": "0"})
+
+    def test_hosted_run_refuses_while_github_run_is_active(self):
+        active = FakeResponse(payload={"workflow_runs": [{"status": "in_progress"}]})
+        with self.hosted(), patch("server.requests.request", return_value=active):
+            response = server.app.test_client().post("/api/run", json={"type": "vc"})
+        self.assertEqual(response.status_code, 400)
+
+    def test_hosted_run_requires_password_when_configured(self):
+        with self.hosted(RUN_PASSWORD="secret"), patch("server.requests.request") as request_mock:
+            response = server.app.test_client().post("/api/run", json={"type": "vc"})
+        self.assertEqual(response.status_code, 401)
+        request_mock.assert_not_called()
+
+    def test_logs_wait_for_a_run_newer_than_the_dispatch(self):
+        old_run = FakeResponse(payload={"workflow_runs": [
+            {"status": "completed", "conclusion": "success", "created_at": "2026-09-25T10:00:00Z"}
+        ]})
+        with self.hosted(), patch("server.requests.request", return_value=old_run):
+            data = server.app.test_client().get("/api/logs?since=2026-09-25T12:00:00Z").get_json()
+        self.assertTrue(data["running"])
+
+
+class PipelineMergeTests(unittest.TestCase):
+    @patch("pipeline.search_form_d_filings", return_value=[])
+    def test_saved_non_vc_rows_are_dropped_on_next_run(self, _search_mock):
+        from pipeline import run_pipeline
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "leads.csv")
+            write_codes(path, [("likely_new", VC), ("likely_new", "Residential - Unknown")])
+            run_pipeline(days=30, output_file=path, logger=lambda _msg: None)
+            with open(path, encoding="utf-8") as f:
+                rows = list(csv.DictReader(f))
+
+        self.assertEqual([row["crd"] for row in rows], ["0"])
 
 
 if __name__ == "__main__":

@@ -11,6 +11,8 @@ import json
 import gzip
 import re
 import threading
+
+import requests
 from datetime import date, datetime, timezone
 from flask import Flask, jsonify, request, send_from_directory, render_template_string
 from pipeline import clean_firm_name, extract_related_name, is_entity_identity, reassess_saved_lead, run_pipeline
@@ -29,8 +31,20 @@ LEADS_FILE = os.path.join(SCRIPT_DIR, "ALL_VC_LEADS.csv")
 BACKLOG_FILE = os.path.join(SCRIPT_DIR, "ALAMAT_RESEARCH_BACKLOG.csv")
 LOGS_FILE = os.path.join(SCRIPT_DIR, "pipeline_run.log")
 # Vercel serverless functions stop after each response and discard written files,
-# so pipeline runs there never finish. The daily GitHub Action refreshes data instead.
-RUNS_ENABLED = not os.environ.get("VERCEL")
+# so the hosted dashboard starts the "Refresh SEC Leads" GitHub Action instead of
+# running the pipeline itself. The Action commits new data, which redeploys the site.
+HOSTED = bool(os.environ.get("VERCEL"))
+GITHUB_TOKEN = os.environ.get("GITHUB_DISPATCH_TOKEN", "")
+GITHUB_REPO = os.environ.get("GITHUB_REPO") or (
+    f"{os.environ['VERCEL_GIT_REPO_OWNER']}/{os.environ['VERCEL_GIT_REPO_SLUG']}"
+    if os.environ.get("VERCEL_GIT_REPO_OWNER") and os.environ.get("VERCEL_GIT_REPO_SLUG")
+    else "alohaaki7/vc_finder"
+)
+GITHUB_REF = os.environ.get("GITHUB_DISPATCH_REF", "main")
+REFRESH_WORKFLOW = "refresh-sec-leads.yml"
+RUN_PASSWORD = os.environ.get("RUN_PASSWORD", "")
+RUNS_ENABLED = not HOSTED or bool(GITHUB_TOKEN)
+ACTIVE_RUN_STATES = {"queued", "in_progress", "waiting", "pending", "requested"}
 
 # Lock and state for running pipeline
 pipeline_lock = threading.Lock()
@@ -200,7 +214,9 @@ def get_leads():
         with open(LEADS_FILE, "r", encoding="utf-8") as f:
             reader = csv.DictReader(f)
             for row in reader:
-                leads.append(prepare_lead_for_display(row))
+                lead = prepare_lead_for_display(row)
+                if lead.get("manager_status_code") != "not_vc":
+                    leads.append(lead)
     except Exception as e:
         return jsonify({"error": f"Failed to read CSV: {e}"}), 500
 
@@ -302,8 +318,7 @@ def get_stats():
             "likely_new_firms": 0,
             "existing_managers": 0,
             "needs_review": 0,
-            "not_checked": 0,
-            "not_vc": 0
+            "not_checked": 0
         })
 
     total = 0
@@ -312,25 +327,24 @@ def get_stats():
     existing_managers = 0
     needs_review = 0
     not_checked = 0
-    not_vc = 0
 
     try:
         with open(LEADS_FILE, "r", encoding="utf-8") as f:
             reader = csv.DictReader(f)
             for row in reader:
+                manager_status = reassess_saved_lead(row).get("manager_status_code") or "not_checked"
+                if manager_status == "not_vc":
+                    continue
                 total += 1
                 if str(row.get("is_new_since_last_run", "")).lower() == "yes":
                     new_since_last_run += 1
 
-                manager_status = reassess_saved_lead(row).get("manager_status_code") or "not_checked"
                 if manager_status == "likely_new":
                     likely_new_firms += 1
                 elif manager_status == "existing_manager":
                     existing_managers += 1
                 elif manager_status == "needs_review":
                     needs_review += 1
-                elif manager_status == "not_vc":
-                    not_vc += 1
                 else:
                     not_checked += 1
 
@@ -343,30 +357,95 @@ def get_stats():
         "likely_new_firms": likely_new_firms,
         "existing_managers": existing_managers,
         "needs_review": needs_review,
-        "not_checked": not_checked,
-        "not_vc": not_vc
+        "not_checked": not_checked
     })
+
+
+def github_api(method, path, **kwargs):
+    return requests.request(
+        method,
+        f"https://api.github.com/repos/{GITHUB_REPO}/actions/workflows/{REFRESH_WORKFLOW}{path}",
+        headers={
+            "Accept": "application/vnd.github+json",
+            "Authorization": f"Bearer {GITHUB_TOKEN}",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+        timeout=15,
+        **kwargs,
+    )
+
+
+def latest_github_run():
+    """Return the newest run of the refresh workflow, or None."""
+    response = github_api("GET", "/runs", params={"per_page": 1})
+    response.raise_for_status()
+    runs = response.json().get("workflow_runs") or []
+    return runs[0] if runs else None
+
+
+def github_run_status(since=""):
+    """Describe the refresh workflow run started at or after `since` (ISO time)."""
+    run = latest_github_run()
+    if not run or (since and run.get("created_at", "") < since):
+        return {"running": bool(since), "logs": "Waiting for GitHub to start the run...", "run_url": ""}
+    running = run.get("status") in ACTIVE_RUN_STATES
+    state = run.get("status") if running else (run.get("conclusion") or run.get("status"))
+    lines = [
+        f"GitHub Actions run #{run.get('run_number')}: {state}",
+        f"Started: {run.get('created_at', '')}",
+        f"Details: {run.get('html_url', '')}",
+    ]
+    if running:
+        lines.append("The SEC search usually takes several minutes.")
+    elif run.get("conclusion") == "success":
+        lines.append("Done. New data appears here once Vercel finishes redeploying the commit.")
+    return {"running": running, "logs": "\n".join(lines), "run_url": run.get("html_url", "")}
 
 
 @app.route("/api/run", methods=["POST"])
 def run_pipeline_api():
-    """Trigger the pipeline script."""
+    """Trigger the pipeline script, or the GitHub Action when hosted."""
     global pipeline_status
     if not RUNS_ENABLED:
         return jsonify({
             "status": "error",
-            "message": "Runs are disabled on the hosted site. Data refreshes daily through GitHub Actions."
+            "message": "Runs are not set up on the hosted site. Add GITHUB_DISPATCH_TOKEN in Vercel."
         }), 403
-    if pipeline_status["running"]:
-        return jsonify({"status": "error", "message": "Pipeline is already running."}), 400
+    if RUN_PASSWORD and request.headers.get("X-Run-Password") != RUN_PASSWORD:
+        return jsonify({"status": "error", "message": "Password required.", "needs_password": True}), 401
 
     data = request.get_json() or {}
-    days = int(data.get("days", 30))
+    try:
+        days = int(data.get("days", 30))
+        min_size = int(data.get("min_size", 5000000))
+    except (TypeError, ValueError):
+        return jsonify({"status": "error", "message": "Days and minimum size must be numbers."}), 400
     lead_type = str(data.get("type", "vc")).strip().lower()
-    min_size = int(data.get("min_size", 5000000))
 
     if lead_type not in ["vc", "pe", "fund2"]:
         return jsonify({"status": "error", "message": "Invalid type. Must be vc, pe, or fund2"}), 400
+
+    if HOSTED:
+        try:
+            run = latest_github_run()
+            if run and run.get("status") in ACTIVE_RUN_STATES:
+                return jsonify({"status": "error", "message": "A refresh is already running on GitHub."}), 400
+            started_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            response = github_api("POST", "/dispatches", json={
+                "ref": GITHUB_REF,
+                "inputs": {"lead_type": lead_type, "days": str(days), "min_size": str(min_size)},
+            })
+        except requests.RequestException as e:
+            return jsonify({"status": "error", "message": f"Could not reach GitHub: {e}"}), 502
+        if response.status_code != 204:
+            return jsonify({
+                "status": "error",
+                "message": f"GitHub refused the run ({response.status_code}): {response.text[:200]}"
+            }), 502
+        return jsonify({"status": "success", "message": "Refresh started on GitHub.", "started_at": started_at})
+
+    if pipeline_status["running"]:
+        return jsonify({"status": "error", "message": "Pipeline is already running."}), 400
 
     # Start runner thread
     t = threading.Thread(target=run_pipeline_thread, args=(days, lead_type, min_size), name="LeadFinderThread")
@@ -379,12 +458,24 @@ def run_pipeline_api():
 @app.route("/api/status", methods=["GET"])
 def get_pipeline_status():
     """Retrieve current background runner status."""
+    if HOSTED and GITHUB_TOKEN:
+        try:
+            github = github_run_status()
+        except requests.RequestException:
+            github = {"running": False}
+        return jsonify({**pipeline_status, "running": github["running"], "hosted": True})
     return jsonify(pipeline_status)
 
 
 @app.route("/api/logs", methods=["GET"])
 def get_pipeline_logs():
-    """Read the live run logs file."""
+    """Read the live run logs file, or the GitHub run summary when hosted."""
+    if HOSTED and GITHUB_TOKEN:
+        try:
+            return jsonify(github_run_status(request.args.get("since", "")))
+        except requests.RequestException as e:
+            return jsonify({"logs": f"Could not reach GitHub: {e}", "running": False})
+
     if not os.path.exists(LOGS_FILE):
         return jsonify({"logs": "No logs recorded yet."})
 
