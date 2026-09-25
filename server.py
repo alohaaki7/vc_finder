@@ -9,12 +9,13 @@ import os
 import csv
 import json
 import gzip
+import hmac
 import re
 import threading
 
 import requests
 from datetime import date, datetime, timezone
-from flask import Flask, jsonify, request, send_from_directory, render_template_string
+from flask import Flask, Response, jsonify, request, send_from_directory, render_template_string
 from pipeline import clean_firm_name, extract_related_name, is_entity_identity, reassess_saved_lead, run_pipeline
 from build_research_backlog import build as build_research_backlog, build_rows as build_research_backlog_rows
 from lead_signals import AdvIndex, early_signal, sec_people
@@ -46,6 +47,25 @@ GITHUB_REPO = os.environ.get("GITHUB_REPO") or (
 GITHUB_REF = os.environ.get("GITHUB_DISPATCH_REF", "main")
 REFRESH_WORKFLOW = "refresh-sec-leads.yml"
 RUN_PASSWORD = os.environ.get("RUN_PASSWORD", "")
+# Password for the whole dashboard. The hosted site refuses to serve anything until
+# it is set, so the lead data is never public by accident.
+DASHBOARD_PASSWORD = os.environ.get("DASHBOARD_PASSWORD", "")
+
+
+@app.before_request
+def require_dashboard_password():
+    if not DASHBOARD_PASSWORD:
+        if HOSTED:
+            return Response("Set DASHBOARD_PASSWORD in Vercel to open this dashboard.", 503)
+        return None
+    auth = request.authorization
+    supplied = (auth.password or "") if auth else ""
+    if hmac.compare_digest(supplied.encode(), DASHBOARD_PASSWORD.encode()):
+        return None
+    return Response(
+        "Password required.", 401,
+        {"WWW-Authenticate": 'Basic realm="VC Finder", charset="UTF-8"'},
+    )
 RUNS_ENABLED = not HOSTED or bool(GITHUB_TOKEN)
 ACTIVE_RUN_STATES = {"queued", "in_progress", "waiting", "pending", "requested"}
 
