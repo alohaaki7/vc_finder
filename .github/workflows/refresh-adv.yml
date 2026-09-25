@@ -1,6 +1,8 @@
 name: Refresh ADV inbox
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "43 11 * * *"
   push:
     branches: [feature/adv-inbox]
     paths:
@@ -29,8 +31,8 @@ jobs:
             ALAMAT_ADV_SIGNALS.csv
             ALAMAT_ADV_SIGNALS.json
             ALAMAT_ADV_SNAPSHOT.csv
-      - name: Publish refreshed data on manual main run
-        if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
+      - name: Publish refreshed data on scheduled or manual main run
+        if: github.ref == 'refs/heads/main' && github.event_name != 'push'
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'

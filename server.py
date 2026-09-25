@@ -17,6 +17,8 @@ from datetime import date, datetime, timezone
 from flask import Flask, jsonify, request, send_from_directory, render_template_string
 from pipeline import clean_firm_name, extract_related_name, is_entity_identity, reassess_saved_lead, run_pipeline
 from build_research_backlog import build as build_research_backlog, build_rows as build_research_backlog_rows
+from lead_signals import AdvIndex, early_signal, sec_people
+from pipeline import normalize_phone
 
 app = Flask(__name__, static_folder="templates")
 
@@ -29,6 +31,7 @@ def add_header(response):
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 LEADS_FILE = os.path.join(SCRIPT_DIR, "ALL_VC_LEADS.csv")
 BACKLOG_FILE = os.path.join(SCRIPT_DIR, "ALAMAT_RESEARCH_BACKLOG.csv")
+ADV_FILE = os.path.join(SCRIPT_DIR, "ALAMAT_ADV_SIGNALS.csv")
 LOGS_FILE = os.path.join(SCRIPT_DIR, "pipeline_run.log")
 # Vercel serverless functions stop after each response and discard written files,
 # so the hosted dashboard starts the "Refresh SEC Leads" GitHub Action instead of
@@ -75,7 +78,39 @@ def prepare_lead_for_display(row):
     display_row["linkedin_search_firm"] = linkedin_search_firm(display_row.get("firm_name"))
     display_row["linkedin_search_person"] = linkedin_search_person(display_row)
     display_row["linkedin_manager_candidate"] = linkedin_manager_candidate(display_row)
+    display_row["sec_people"] = "; ".join(sec_people(display_row))
+    (display_row["early_signal"], display_row["early_signal_label"],
+     display_row["early_rank"]) = early_signal(display_row)
     return display_row
+
+
+_leads_cache = {"key": None, "leads": []}
+
+
+def file_version(path):
+    return os.path.getmtime(path) if os.path.exists(path) else None
+
+
+def load_display_leads():
+    """Return VC leads prepared for the dashboard, cached until either data file changes."""
+    key = (file_version(LEADS_FILE), file_version(ADV_FILE))
+    if _leads_cache["key"] == key:
+        return _leads_cache["leads"]
+
+    with open(LEADS_FILE, "r", encoding="utf-8") as f:
+        leads = [prepare_lead_for_display(row) for row in csv.DictReader(f)]
+    leads = [lead for lead in leads if lead.get("manager_status_code") != "not_vc"]
+
+    adv_index = AdvIndex.from_csv(ADV_FILE)
+    phone_counts = {}
+    for lead in leads:
+        phone = normalize_phone(lead.get("phone"))
+        phone_counts[phone] = phone_counts.get(phone, 0) + 1
+    for lead in leads:
+        lead.update(adv_index.match(lead, lead["linkedin_search_firm"], phone_counts) or {})
+
+    _leads_cache.update(key=key, leads=leads)
+    return leads
 
 
 def prepare_backlog_for_display(row, index=0):
@@ -108,15 +143,8 @@ def linkedin_search_firm(value):
 
 def linkedin_search_person(row):
     """Choose a human SEC-associated person instead of a GP or management entity."""
-    candidates = [row.get("contact_name", "")]
-    candidates.extend(str(row.get("all_contacts") or "").split(";"))
-
-    for candidate in candidates:
-        name = extract_related_name(candidate)
-        name = re.sub(r"^(?:n/?a|general partner|management company)\s+", "", name, flags=re.IGNORECASE)
-        if name and not is_entity_identity(name) and len(name.split()) >= 2:
-            return name.title() if name.isupper() else name
-    return ""
+    people = sec_people(row, limit=1)
+    return people[0] if people else ""
 
 
 MANAGER_ROLE_PATTERN = re.compile(
@@ -209,18 +237,17 @@ def get_leads():
     if not os.path.exists(LEADS_FILE):
         return jsonify([])
 
-    leads = []
     try:
-        with open(LEADS_FILE, "r", encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                lead = prepare_lead_for_display(row)
-                if lead.get("manager_status_code") != "not_vc":
-                    leads.append(lead)
+        leads = load_display_leads()
     except Exception as e:
         return jsonify({"error": f"Failed to read CSV: {e}"}), 500
 
-    return jsonify(leads)
+    response = jsonify(leads)
+    if 'gzip' in request.headers.get('Accept-Encoding', ''):
+        response.set_data(gzip.compress(response.get_data()))
+        response.headers['Content-Encoding'] = 'gzip'
+        response.headers['Vary'] = 'Accept-Encoding'
+    return response
 
 
 @app.route('/adv')

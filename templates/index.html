@@ -555,6 +555,9 @@
         .badge-first { background: rgba(255, 0, 122, 0.1); color: var(--accent-pink); border: 1px solid rgba(255, 0, 122, 0.2); }
         .badge-new { background: rgba(0, 112, 243, 0.1); color: #70a1ff; border: 1px solid rgba(0, 112, 243, 0.2); }
         .badge-estab { background: rgba(156, 163, 175, 0.1); color: var(--text-muted); }
+        .badge-early { background: rgba(16, 185, 129, 0.12); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.25); }
+        .lead-sub { display: block; margin-top: 0.2rem; font-size: 0.78rem; font-weight: 400; color: var(--text-muted); }
+        .lead-sub .badge { margin-left: 0; margin-right: 0.35rem; }
         
         .score-circle {
             width: 32px;
@@ -1357,6 +1360,7 @@
                     <div class="filter-tags" id="filter-tags">
                         <button class="filter-tag active" data-filter-group="run" onclick="setRunFilter('all', this)">All Runs</button>
                         <button class="filter-tag" data-filter-group="run" onclick="setRunFilter('new', this)">New This Run</button>
+                        <button class="filter-tag" data-filter-group="run" onclick="setRunFilter('not_raised', this)">Not Raised Yet</button>
                         <button class="filter-tag active" id="manager-filter-all" data-filter-group="manager" onclick="setManagerFilter('all', this)">All Manager States</button>
                         <button class="filter-tag" id="manager-filter-likely" data-filter-group="manager" onclick="setManagerFilter('likely_new', this)">Likely New Firms</button>
                         <button class="filter-tag" data-filter-group="manager" onclick="setManagerFilter('existing_manager', this)">Existing Managers</button>
@@ -1473,6 +1477,9 @@
                         <a href="#" target="_blank" rel="noopener noreferrer" class="btn-action" id="link-sec">
                             SEC filing
                         </a>
+                        <a href="#" target="_blank" rel="noopener noreferrer" class="btn-action" id="link-adv">
+                            SEC adviser record
+                        </a>
                     </div>
                 </div>
 
@@ -1510,7 +1517,7 @@
         let runFilter = 'all';
         let managerFilter = 'all';
         let stageFilter = 'all';
-        let sortKey = 'filing_date';
+        let sortKey = 'early_rank';
         let sortAsc = false;
 
         // Init
@@ -1608,7 +1615,7 @@
             activeDataset = dataset;
             selectedLeadCrd = null;
             closeLeadDetail();
-            sortKey = dataset === 'backlog' ? 'backlog_priority' : 'filing_date';
+            sortKey = dataset === 'backlog' ? 'backlog_priority' : 'early_rank';
             sortAsc = dataset === 'backlog';
             document.getElementById('view-master').classList.toggle('active', dataset === 'master');
             document.getElementById('view-backlog').classList.toggle('active', dataset === 'backlog');
@@ -1653,6 +1660,7 @@
                 tags.innerHTML = `
                     <button class="filter-tag active" data-filter-group="run" onclick="setRunFilter('all', this)">All Runs</button>
                     <button class="filter-tag" data-filter-group="run" onclick="setRunFilter('new', this)">New This Run</button>
+                        <button class="filter-tag" data-filter-group="run" onclick="setRunFilter('not_raised', this)">Not Raised Yet</button>
                     <button class="filter-tag active" id="manager-filter-all" data-filter-group="manager" onclick="setManagerFilter('all', this)">All Manager States</button>
                     <button class="filter-tag" id="manager-filter-likely" data-filter-group="manager" onclick="setManagerFilter('likely_new', this)">Likely New Firms</button>
                     <button class="filter-tag" data-filter-group="manager" onclick="setManagerFilter('existing_manager', this)">Existing Managers</button>
@@ -1771,7 +1779,9 @@
                     matchesStage = lead.fund_stage === stageFilter;
                 }
 
-                const matchesRun = runFilter !== 'new' || isNewLead(lead);
+                const matchesRun = runFilter === 'all'
+                    || (runFilter === 'new' && isNewLead(lead))
+                    || (runFilter === 'not_raised' && lead.early_signal === 'not_raised');
 
                 return matchesSearch && matchesManager && matchesStage && matchesRun;
             });
@@ -1800,6 +1810,16 @@
                 if (sortKey === 'is_new_since_last_run') {
                     valA = isNewLead(a) ? 1 : 0;
                     valB = isNewLead(b) ? 1 : 0;
+                } else if (sortKey === 'early_rank') {
+                    // Earliest funds first, newest filings first within each group
+                    const rankA = parseInt(valA) || 0;
+                    const rankB = parseInt(valB) || 0;
+                    if (rankA !== rankB) return sortAsc ? rankA - rankB : rankB - rankA;
+                    valA = b.filing_date || '';
+                    valB = a.filing_date || '';
+                    if (valA < valB) return -1;
+                    if (valA > valB) return 1;
+                    return 0;
                 } else if (sortKey === 'site_score' || sortKey === 'vc_score' || sortKey === 'freshness_score' || sortKey === 'manager_novelty_score' || sortKey === 'total_filings') {
                     valA = parseInt(valA) || 0;
                     valB = parseInt(valB) || 0;
@@ -1816,6 +1836,19 @@
             return String(value ?? '').replace(/[&<>'"]/g, char => ({
                 '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
             }[char]));
+        }
+
+        function leadSignalBadges(lead) {
+            const badges = [];
+            if (lead.early_signal_label) badges.push(`<span class="badge badge-early">${escapeHtml(lead.early_signal_label)}</span>`);
+            if (lead.adv_crd) badges.push(`<span class="badge badge-new">SEC adviser</span>`);
+            return badges.join('');
+        }
+
+        function leadPeopleLine(lead) {
+            const people = String(lead.sec_people || '').split('; ').filter(Boolean);
+            if (!people.length) return 'No person named on filing';
+            return people.length > 1 ? `${people[0]} +${people.length - 1}` : people[0];
         }
 
         function leadRowId(lead) {
@@ -1889,6 +1922,7 @@
                                 <span class="badge ${managerBadgeClass}">${escapeHtml(managerLabel)}</span>
                             </span>
                             <span class="mobile-card-signal">${escapeHtml(lead.fund_stage || 'Stage needs review')} · Freshness ${score}</span>
+                            <span class="lead-sub">${leadSignalBadges(lead)}${escapeHtml(leadPeopleLine(lead))}</span>
                             <span class="mobile-card-meta">
                                 <span>${escapeHtml(location)}</span>
                                 <span>First sale: ${escapeHtml(lead.date_of_first_sale || 'Yet to occur')}</span>
@@ -1969,7 +2003,8 @@
                 const newBadge = isNewLead(lead) ? `<span class="badge badge-first" style="margin-left: 0.45rem;">New</span>` : '';
 
                 tr.innerHTML = `
-                    <td style="font-weight: 600;">${escapeHtml(lead.firm_name)}${newBadge}</td>
+                    <td style="font-weight: 600;">${escapeHtml(lead.firm_name)}${newBadge}
+                        <span class="lead-sub">${leadSignalBadges(lead)}${escapeHtml(leadPeopleLine(lead))}</span></td>
                     <td>${managerBadge}</td>
                     <td>${scoreBadge}</td>
                     <td>${escapeHtml(lead.fund_stage)}</td>
@@ -2058,23 +2093,25 @@
             document.getElementById('det-fund-size').textContent = lead.fund_size || 'Not disclosed';
             document.getElementById('det-amount-sold').textContent = lead.amount_sold || 'Not disclosed';
 
-            const contactName = String(lead.contact_name || '').trim();
-            const contactTitle = String(lead.contact_title || '').trim();
+            const people = String(lead.sec_people || '').split('; ').filter(Boolean);
+            const contactName = isBacklog ? String(lead.contact_name || '').trim() : people.join(', ');
+            const contactTitle = isBacklog ? String(lead.contact_title || '').trim() : '';
             document.getElementById('det-contact').textContent = contactName
                 ? `${contactName}${contactTitle ? ` — ${contactTitle}` : ''}`
                 : 'No human SEC contact identified';
             document.getElementById('det-contact-status').textContent = isBacklog
                 ? (lead.research_recommendation || 'Operating firm, decision-maker, launch evidence, and public presence still need review.')
                 : (contactName
-                    ? `SEC contact only. Manager identity: ${(lead.contact_verification_status || 'unverified').replaceAll('_', ' ')}.`
+                    ? `People named on the Form D. Manager identity: ${(lead.contact_verification_status || 'unverified').replaceAll('_', ' ')}.`
                     : 'Founder, GP, or managing partner still needs research.');
 
             const contacts = lead.all_contacts ? lead.all_contacts.replace(/; /g, '\n') : 'None disclosed';
             document.getElementById('det-related-people').textContent = contacts;
 
+            const website = lead.domain || lead.adv_website || '';
             document.getElementById('det-domain').textContent = isBacklog
                 ? 'Website not audited yet'
-                : (lead.domain || 'Website not verified');
+                : (website ? `${website}${lead.domain ? '' : ' (reported on SEC adviser registration)'}` : 'Website not verified');
             document.getElementById('det-website-status').textContent = isBacklog
                 ? 'This row was set aside for human/public research; no website conclusion has been made.'
                 : (lead.website_status_reason || `Website status: ${(lead.website_status || 'unknown').replaceAll('_', ' ')}`);
@@ -2083,18 +2120,27 @@
                 : (lead.service_opportunity || `Suggested route: ${(lead.offer_route || 'presence check').replaceAll('_', ' ')}`);
             document.getElementById('det-freshness').textContent = isBacklog
                 ? (lead.research_recommendation || 'Research the operating firm, decision-maker, launch evidence, and public presence.')
-                : (lead.freshness_reason || lead.manager_history_reason || lead.signal_type || 'Freshness evidence not recorded.');
+                : [
+                    lead.early_signal === 'not_raised' ? 'Fund has not made its first sale yet.' : '',
+                    lead.early_signal === 'just_raised' ? `First sale ${lead.date_of_first_sale}, shortly before filing.` : '',
+                    lead.freshness_reason || lead.manager_history_reason || lead.signal_type || 'Freshness evidence not recorded.',
+                ].filter(Boolean).join(' ');
             document.getElementById('det-evidence').textContent = isBacklog
                 ? `SEC filing: ${lead.filing_url || 'not recorded'}${lead.issues ? ` | SEC category: ${lead.issues}` : ''}${lead.source_filing_count ? ` | Related filings grouped: ${lead.source_filing_count}` : ''}`
-                : (lead.evidence_sources ? `Evidence: ${lead.evidence_sources}` : 'SEC filing is the only recorded source so far.');
+                : [
+                    lead.adv_crd
+                        ? `SEC adviser registration: ${lead.adv_name} (${lead.adv_firm_type || 'adviser'}), registered ${lead.adv_registration_date || 'date unknown'}, matched by ${lead.adv_match_basis}. Check it is the same manager.`
+                        : '',
+                    lead.evidence_sources ? `Evidence: ${lead.evidence_sources}` : (lead.adv_crd ? '' : 'SEC filing is the only recorded source so far.'),
+                ].filter(Boolean).join(' ');
 
             const personExact = isBacklog ? '' : validExternalUrl(lead.linkedin_person);
             const companyExact = isBacklog ? '' : validExternalUrl(lead.linkedin_company);
             const searchFirm = String(lead.linkedin_search_firm || lead.firm_name || '').trim();
             const secPerson = String(lead.linkedin_search_person || '').trim();
             const managerCandidate = String(lead.linkedin_manager_candidate || '').trim();
-            const personQuery = managerCandidate
-                ? `${managerCandidate} ${searchFirm}`
+            const personQuery = (managerCandidate || secPerson)
+                ? `${managerCandidate || secPerson} ${searchFirm}`
                 : `${searchFirm} founder "general partner" "managing partner"`;
             const personSearch = isBacklog
                 ? (validExternalUrl(lead.linkedin_search_url) || linkedinSearchUrl('people', personQuery))
@@ -2128,11 +2174,16 @@
             );
             configureLeadAction(
                 'link-website',
-                isBacklog ? validExternalUrl(lead.website_search_url) : validExternalUrl(lead.domain),
-                isBacklog ? 'Search for website' : (lead.domain ? 'Open website' : 'Website not verified'),
+                isBacklog ? validExternalUrl(lead.website_search_url) : validExternalUrl(website),
+                isBacklog ? 'Search for website' : (website ? 'Open website' : 'Website not verified'),
                 isBacklog,
             );
             configureLeadAction('link-sec', validExternalUrl(lead.filing_url), 'SEC filing');
+            configureLeadAction(
+                'link-adv',
+                isBacklog ? '' : validExternalUrl(lead.adv_url),
+                lead.adv_crd && !isBacklog ? 'SEC adviser record' : 'No SEC adviser match',
+            );
         }
 
         function closeLeadDetail() {
