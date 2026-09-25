@@ -32,9 +32,8 @@ class ActionableSidebarTests(unittest.TestCase):
     def test_unverified_linkedin_uses_search_instead_of_guessing(self):
         self.assertIn("linkedinSearchUrl('people'", self.template)
         self.assertIn("linkedinSearchUrl('companies'", self.template)
-        self.assertIn("personExact || personSearch", self.template)
+        self.assertIn("personExact || googleFundSearchUrl(lead)", self.template)
         self.assertIn("companyExact || companySearch", self.template)
-        self.assertIn("founder \"general partner\" \"managing partner\"", self.template)
         self.assertIn("Check SEC person", self.template)
         self.assertIn("linkedinSearchUrl('people', secPerson)", self.template)
         self.assertNotIn("`${secPerson} ${searchFirm}`", self.template)
