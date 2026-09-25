@@ -1250,6 +1250,84 @@
             #detail-placeholder, .console-panel { display: none; }
             .metrics-grid { margin-inline: 0; padding-inline: 0; }
         }
+
+        /* Phone research flow: list first, compact cards, actions on top of the profile */
+        .mobile-quick-filters, .detail-topbar, .mobile-card-google { display: none; }
+        @media (max-width: 768px) {
+            .app-container { padding: 0.75rem; }
+            header { gap: 0.6rem; margin-bottom: 0.6rem; padding-bottom: 0.6rem; }
+            .logo-symbol { width: 36px; height: 36px; font-size: 1.1rem; border-radius: 10px; }
+            .header-logo h1 { font-size: 1.2rem; }
+            .header-logo p { display: none; }
+            .pipeline-mobile-toggle { min-height: 40px; padding: 0.5rem 0.8rem; font-size: 0.9rem; }
+            .metrics-grid, #download-link[download], .panel-title { display: none; }
+            .refresh-status:empty { display: none; }
+            .panel { padding: 0.75rem; }
+            .panel-header { margin-bottom: 0.6rem; }
+            .view-switcher { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px; }
+            .view-switcher button { min-height: 40px; padding: 0.35rem 0.3rem; font-size: 0.82rem; }
+            .view-switcher button:last-child:nth-child(odd) { grid-column: auto; }
+            .view-count { display: none; }
+            .search-filter-bar { gap: 0.5rem; margin-bottom: 0.5rem; padding-bottom: 0.5rem; }
+
+            .mobile-quick-filters { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+            .mobile-quick-filters[hidden] { display: none; }
+            .mobile-quick-filters::-webkit-scrollbar { display: none; }
+            .mobile-quick-filters button {
+                flex: 0 0 auto; min-height: 40px; padding: 0 14px; border-radius: 999px;
+                border: 1px solid var(--border-glass); background: rgba(255, 255, 255, 0.04);
+                color: var(--text-muted); font-size: 0.88rem; font-weight: 500; cursor: pointer;
+            }
+            .mobile-quick-filters button.active {
+                border-color: var(--accent-neon); color: var(--accent-neon); background: rgba(0, 229, 255, 0.08);
+            }
+            .mobile-search-toggle { min-height: 40px; padding: 6px 12px; font-size: 0.85rem; color: var(--text-muted); }
+
+            .mobile-list { gap: 0.5rem; }
+            .mobile-lead-card { position: relative; }
+            .mobile-card-button { padding: 0; }
+            .mobile-card-body { gap: 0.35rem; padding: 0.75rem 5.8rem 0.75rem 0.85rem; }
+            .mobile-card-bottom { display: none; }
+            .adv-arrow { display: none; }
+            .mobile-card-title { font-size: 1rem; }
+            .mobile-card-top { gap: 6px; }
+            .mobile-card-meta { font-size: 0.8rem; gap: 0.2rem 0.6rem; }
+            .mobile-card-google {
+                display: flex; align-items: center; justify-content: center;
+                position: absolute; top: 0.7rem; right: 0.7rem; min-width: 76px; min-height: 40px;
+                padding: 0 10px; border-radius: 10px; font-size: 0.85rem; font-weight: 600;
+                background: var(--accent-neon); color: #041016; text-decoration: none;
+            }
+
+            .detail-pane.active { display: flex; flex-direction: column; padding-top: 0; }
+            .detail-close { display: none; }
+            .detail-topbar {
+                display: flex; align-items: center; gap: 8px; order: -3;
+                position: sticky; top: 0; z-index: 2; margin: 0 -1rem 0.75rem;
+                padding: max(8px, env(safe-area-inset-top)) 1rem 8px;
+                background: rgba(10, 11, 16, 0.96); border-bottom: 1px solid var(--border-glass);
+                backdrop-filter: blur(12px);
+            }
+            .detail-topbar button {
+                min-height: 40px; min-width: 44px; padding: 0 12px; border-radius: 10px;
+                border: 1px solid var(--border-glass); background: var(--bg-secondary);
+                color: var(--text-main); font-size: 0.9rem; cursor: pointer;
+            }
+            .detail-topbar button:disabled { opacity: 0.35; }
+            .detail-topbar .detail-position { flex: 1; text-align: center; color: var(--text-muted); font-size: 0.85rem; }
+            .detail-header { order: -2; padding-bottom: 0.75rem; }
+            .detail-pane .action-grid { order: -1; margin: 0.75rem 0 0.25rem; gap: 0.5rem; }
+            .action-grid .btn-action[aria-disabled="true"] { display: none; }
+            .action-grid .btn-action { min-height: 46px; font-size: 13px; }
+            .action-grid .btn-action.is-search::after { content: none; }
+            .action-grid .btn-primary-action { grid-column: 1 / -1; font-size: 15px; min-height: 50px; }
+            .lead-section { padding: 0.85rem 0 0.95rem; }
+            header { flex-direction: row; flex-wrap: wrap; align-items: center; }
+            .header-logo { flex: 1; min-width: 0; align-items: center; }
+            .pipeline-mobile-toggle { width: auto; gap: 10px; }
+            .pipeline-controller { flex-basis: 100%; }
+        }
+        .person-link { color: inherit; text-decoration: underline; text-decoration-color: rgba(0, 229, 255, 0.5); text-underline-offset: 3px; }
     </style>
 </head>
 <body>
@@ -1341,7 +1419,7 @@
                         <div class="view-switcher" role="tablist" aria-label="Lead dataset">
                             <button type="button" id="view-master" class="active" role="tab" aria-selected="true" onclick="setDataset('master')">Master leads</button>
                             <button type="button" id="view-backlog" role="tab" aria-selected="false" onclick="setDataset('backlog')">VC research <span class="view-count" id="backlog-count">0</span></button>
-                            <button type="button" onclick="location.href='/adv'">ADV discovery ↗</button>
+                            <button type="button" onclick="location.href='/adv'">ADV discovery<span class="adv-arrow"> ↗</span></button>
                         </div>
                         <a href="/api/leads" download="ALL_VC_LEADS.csv" id="download-link" class="btn-action" style="padding: 0.4rem 0.8rem; border-radius: 8px;">
                         📥 Download Master CSV
@@ -1356,7 +1434,13 @@
                         <span class="search-icon">🔍</span>
                         <input type="text" id="search-input" class="search-input" placeholder="Search firm, contact, signal..." oninput="filterData()">
                     </div>
-                    <button type="button" class="mobile-search-toggle" aria-expanded="false" aria-controls="filter-tags" onclick="const expanded=document.getElementById('filter-tags').classList.toggle('phone-expanded'); this.setAttribute('aria-expanded',String(expanded)); this.textContent=expanded?'Hide filters':'Show filters';">Show filters</button>
+                    <div class="mobile-quick-filters" id="mobile-quick-filters" role="group" aria-label="Quick views">
+                        <button type="button" data-quick="not_raised" onclick="setQuickView('not_raised')">Not raised yet</button>
+                        <button type="button" data-quick="likely_new" onclick="setQuickView('likely_new')">Likely new</button>
+                        <button type="button" data-quick="needs_review" onclick="setQuickView('needs_review')">Needs review</button>
+                        <button type="button" data-quick="all" onclick="setQuickView('all')">All</button>
+                    </div>
+                    <button type="button" class="mobile-search-toggle" aria-expanded="false" aria-controls="filter-tags" onclick="const expanded=document.getElementById('filter-tags').classList.toggle('phone-expanded'); this.setAttribute('aria-expanded',String(expanded)); this.textContent=expanded?'Hide filters':'More filters';">More filters</button>
                     <div class="filter-tags" id="filter-tags">
                         <button class="filter-tag active" data-filter-group="run" onclick="setRunFilter('all', this)">All Runs</button>
                         <button class="filter-tag" data-filter-group="run" onclick="setRunFilter('new', this)">New This Run</button>
@@ -1403,6 +1487,12 @@
                 <!-- Lead details panel (Drawer) -->
                 <div class="panel detail-pane" id="detail-panel">
                     <button type="button" class="detail-close" id="detail-close" aria-label="Close lead details" onclick="closeLeadDetail()">×</button>
+                    <div class="detail-topbar">
+                        <button type="button" id="detail-back" onclick="closeLeadDetail()" aria-label="Back to list">← Back</button>
+                        <span class="detail-position" id="detail-position"></span>
+                        <button type="button" id="detail-prev" onclick="stepLead(-1)" aria-label="Previous firm">‹</button>
+                        <button type="button" id="detail-next" onclick="stepLead(1)" aria-label="Next firm">Next ›</button>
+                    </div>
                     <div class="detail-header">
                         <p class="detail-kicker" id="detail-kicker">Lead profile</p>
                         <h3 class="detail-name" id="det-firm">Volo Ventures</h3>
@@ -1617,6 +1707,7 @@
             closeLeadDetail();
             sortKey = dataset === 'backlog' ? 'backlog_priority' : 'early_rank';
             sortAsc = dataset === 'backlog';
+            document.getElementById('mobile-quick-filters').hidden = dataset === 'backlog';
             document.getElementById('view-master').classList.toggle('active', dataset === 'master');
             document.getElementById('view-backlog').classList.toggle('active', dataset === 'backlog');
             document.getElementById('view-master').setAttribute('aria-selected', String(dataset === 'master'));
@@ -1735,6 +1826,37 @@
             filterData();
         }
 
+        const QUICK_VIEWS = {
+            not_raised: { manager: 'likely_new', run: 'not_raised' },
+            likely_new: { manager: 'likely_new', run: 'all' },
+            needs_review: { manager: 'needs_review', run: 'all' },
+            all: { manager: 'all', run: 'all' },
+        };
+
+        function syncFilterButtons() {
+            const values = { run: runFilter, manager: managerFilter, stage: stageFilter };
+            document.querySelectorAll('[data-filter-group]').forEach(button => {
+                const group = button.dataset.filterGroup;
+                if (!(group in values)) return;
+                const active = (button.getAttribute('onclick') || '').includes(`'${values[group]}'`);
+                button.classList.toggle('active', active);
+                button.setAttribute('aria-pressed', String(active));
+            });
+            const quick = Object.keys(QUICK_VIEWS).find(key =>
+                QUICK_VIEWS[key].manager === managerFilter && QUICK_VIEWS[key].run === runFilter && stageFilter === 'all');
+            document.querySelectorAll('#mobile-quick-filters button').forEach(button =>
+                button.classList.toggle('active', button.dataset.quick === quick));
+        }
+
+        function setQuickView(view) {
+            managerFilter = QUICK_VIEWS[view].manager;
+            runFilter = QUICK_VIEWS[view].run;
+            stageFilter = 'all';
+            syncFilterButtons();
+            filterData();
+            window.scrollTo({ top: 0 });
+        }
+
         function setBacklogFilter(val, el) {
             backlogFilter = activateFilterButton('backlog', el, val);
             filterData();
@@ -1788,6 +1910,7 @@
 
             sortData();
             renderTable();
+            if (activeDataset !== 'backlog') syncFilterButtons();
         }
 
         function sortLeads(key) {
@@ -1913,30 +2036,38 @@
                         ? `${lead.city}, ${lead.state}`
                         : (lead.city || lead.state || lead.country || 'Location unavailable');
                     const title = lead.firm_name || lead.name || 'Unnamed firm';
-                    const score = parseInt(lead.freshness_score || lead.vc_score || lead.site_score) || 0;
+                    const newBadge = isNewLead(lead) ? '<span class="badge badge-first">New</span>' : '';
+                    const saleNote = lead.early_signal ? '' : `<span>First sale ${escapeHtml(lead.date_of_first_sale || '—')}</span>`;
                     button.setAttribute('aria-label', `Review ${title}`);
                     button.innerHTML = `
                         <span class="mobile-card-body">
                             <span class="mobile-card-top">
                                 <span class="mobile-card-title">${escapeHtml(title)}</span>
-                                <span class="badge ${managerBadgeClass}">${escapeHtml(managerLabel)}</span>
                             </span>
-                            <span class="mobile-card-signal">${escapeHtml(lead.fund_stage || 'Stage needs review')} · Freshness ${score}</span>
-                            <span class="lead-sub">${leadSignalBadges(lead)}${escapeHtml(leadPeopleLine(lead))}</span>
+                            <span class="lead-sub">${newBadge}${managerCode === 'likely_new' ? '' : `<span class="badge ${managerBadgeClass}">${escapeHtml(managerLabel)}</span>`}${leadSignalBadges(lead)}${escapeHtml(leadPeopleLine(lead))}</span>
                             <span class="mobile-card-meta">
+                                <span>${escapeHtml(lead.fund_stage || 'Stage unknown')}</span>
                                 <span>${escapeHtml(location)}</span>
-                                <span>First sale: ${escapeHtml(lead.date_of_first_sale || 'Yet to occur')}</span>
-                                <span>Filed: ${escapeHtml(lead.filing_date || 'Date unavailable')}</span>
-                            </span>
-                            <span class="mobile-card-bottom">
-                                <span class="mobile-card-signal">${isNewLead(lead) ? 'New this run' : 'Saved in master leads'}</span>
-                                <span class="mobile-card-review">Review</span>
+                                <span>Filed ${escapeHtml(lead.filing_date || '—')}</span>
+                                ${saleNote}
                             </span>
                         </span>`;
                 }
 
+                const googleUrl = googleFundSearchUrl(lead);
+                if (googleUrl) {
+                    const google = document.createElement('a');
+                    google.className = 'mobile-card-google';
+                    google.href = googleUrl;
+                    google.target = '_blank';
+                    google.rel = 'noopener noreferrer';
+                    google.textContent = 'Google';
+                    google.setAttribute('aria-label', `Google ${fundSearchName(lead)}`);
+                    card.appendChild(google);
+                }
+
                 button.onclick = () => selectLead(lead, card);
-                card.appendChild(button);
+                card.prepend(button);
                 mobileList.appendChild(card);
             });
         }
@@ -2082,11 +2213,16 @@
             selectedLeadCrd = isBacklog ? lead.backlog_id : lead.crd;
 
             document.getElementById('detail-placeholder').style.display = 'none';
-            document.getElementById('detail-panel').classList.add('active');
-            if (window.matchMedia('(max-width: 768px)').matches) {
+            const detailPanel = document.getElementById('detail-panel');
+            detailPanel.classList.add('active');
+            if (isPhone()) {
                 document.body.classList.add('mobile-detail-open');
-                document.getElementById('detail-close').focus({ preventScroll: true });
+                detailPanel.scrollTop = 0;
+                if (!(history.state && history.state.leadDetail)) {
+                    history.pushState({ leadDetail: true }, '');
+                }
             }
+            updateDetailPosition();
 
             const isUnresolvedFiling = isBacklog && lead.record_type === 'unresolved_vc_filing';
             document.getElementById('detail-kicker').textContent = isUnresolvedFiling
@@ -2112,13 +2248,22 @@
             const people = String(lead.sec_people || '').split('; ').filter(Boolean);
             const contactName = isBacklog ? String(lead.contact_name || '').trim() : people.join(', ');
             const contactTitle = isBacklog ? String(lead.contact_title || '').trim() : '';
-            document.getElementById('det-contact').textContent = contactName
-                ? `${contactName}${contactTitle ? ` — ${contactTitle}` : ''}`
-                : 'No human SEC contact identified';
+            const contactEl = document.getElementById('det-contact');
+            if (!isBacklog && people.length) {
+                const brand = String(lead.linkedin_search_firm || lead.firm_name || '').trim();
+                contactEl.innerHTML = people.map(person => {
+                    const url = `https://www.google.com/search?q=${encodeURIComponent(`"${person}" "${brand}"`)}`;
+                    return `<a class="person-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(person)}</a>`;
+                }).join(', ');
+            } else {
+                contactEl.textContent = contactName
+                    ? `${contactName}${contactTitle ? ` — ${contactTitle}` : ''}`
+                    : 'No human SEC contact identified';
+            }
             document.getElementById('det-contact-status').textContent = isBacklog
                 ? (lead.research_recommendation || 'Operating firm, decision-maker, launch evidence, and public presence still need review.')
                 : (contactName
-                    ? `People named on the Form D. Manager identity: ${(lead.contact_verification_status || 'unverified').replaceAll('_', ' ')}.`
+                    ? `People named on the Form D. Tap a name to Google them. Manager identity: ${(lead.contact_verification_status || 'unverified').replaceAll('_', ' ')}.`
                     : 'Founder, GP, or managing partner still needs research.');
 
             const contacts = lead.all_contacts ? lead.all_contacts.replace(/; /g, '\n') : 'None disclosed';
@@ -2195,13 +2340,48 @@
             );
         }
 
-        function closeLeadDetail() {
+        function isPhone() {
+            return window.matchMedia('(max-width: 768px)').matches;
+        }
+
+        function selectedLeadIndex() {
+            return filteredLeads.findIndex(lead => leadRowId(lead) === selectedLeadCrd);
+        }
+
+        function updateDetailPosition() {
+            const index = selectedLeadIndex();
+            document.getElementById('detail-position').textContent =
+                index >= 0 ? `${index + 1} of ${filteredLeads.length}` : '';
+            document.getElementById('detail-prev').disabled = index <= 0;
+            document.getElementById('detail-next').disabled = index < 0 || index >= filteredLeads.length - 1;
+        }
+
+        function stepLead(offset) {
+            const index = selectedLeadIndex() + offset;
+            if (index < 0 || index >= filteredLeads.length) return;
+            const container = isPhone() ? document.getElementById('mobile-list') : document.getElementById('table-body');
+            const element = container.children[index];
+            if (element) selectLead(filteredLeads[index], element);
+        }
+
+        // The phone's back button closes the profile instead of leaving the site
+        window.addEventListener('popstate', () => {
+            if (document.getElementById('detail-panel').classList.contains('active')) closeLeadDetail(true);
+        });
+
+        function closeLeadDetail(fromHistory = false) {
+            if (!fromHistory && history.state && history.state.leadDetail) {
+                history.back();
+                return;
+            }
+            const openCard = document.querySelector('.mobile-lead-card.selected');
             document.getElementById('detail-panel').classList.remove('active');
             document.body.classList.remove('mobile-detail-open');
             document.querySelectorAll('.lead-selectable').forEach(row => row.classList.remove('selected'));
             selectedLeadCrd = null;
             const placeholder = document.getElementById('detail-placeholder');
             if (placeholder) placeholder.style.display = '';
+            if (openCard && isPhone()) openCard.scrollIntoView({ block: 'center' });
         }
 
         function togglePipelineControls() {
