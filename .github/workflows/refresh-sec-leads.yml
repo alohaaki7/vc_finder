@@ -57,6 +57,7 @@ jobs:
 
       - name: Refresh lead data
         env:
+          VC_FINDER_SEC_USER_AGENT: ${{ secrets.VC_FINDER_SEC_USER_AGENT }}
           LEAD_TYPE: ${{ inputs.lead_type || 'vc' }}
           DAYS: ${{ inputs.days || '30' }}
           MIN_SIZE: ${{ inputs.min_size || '0' }}
@@ -72,13 +73,19 @@ jobs:
 
       - name: Commit refreshed lead data
         run: |
-          if git diff --quiet -- ALL_VC_LEADS.csv ALAMAT_RESEARCH_BACKLOG.csv; then
+          git add -N SEC_SEEN_FILINGS.json 2>/dev/null || true
+          if git diff --quiet -- ALL_VC_LEADS.csv ALAMAT_RESEARCH_BACKLOG.csv SEC_SEEN_FILINGS.json; then
             echo "No lead changes found."
             exit 0
           fi
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add ALL_VC_LEADS.csv ALAMAT_RESEARCH_BACKLOG.csv
+          git add ALL_VC_LEADS.csv ALAMAT_RESEARCH_BACKLOG.csv SEC_SEEN_FILINGS.json
           git commit -m "Refresh SEC leads"
-          git push
+          # Other jobs and merges can move main during the run; replay on top instead of failing
+          for attempt in 1 2 3; do
+            git pull --rebase origin main && git push && exit 0
+            sleep $((attempt * 10))
+          done
+          exit 1

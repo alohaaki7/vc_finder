@@ -44,6 +44,16 @@ HEADERS = {
     "Accept": "application/json, text/html, */*"
 }
 
+# The SEC asks automated clients to identify themselves with a monitored contact.
+SEC_USER_AGENT = (
+    os.environ.get("VC_FINDER_SEC_USER_AGENT", "").strip()
+    or "LeadFinderTeam contact@emergingvcscout.com"
+)
+EFTS_URL = "https://efts.sec.gov/LATEST/search-index"
+# EFTS stops paging at 10,000 results; one day of Form D filings is far below that.
+EFTS_MAX_RESULTS = 10000
+
+
 def requests_get(url, params=None, headers=None, timeout=10):
     """Request helper with default headers and simple retries."""
     h = headers or HEADERS
@@ -58,130 +68,82 @@ def requests_get(url, params=None, headers=None, timeout=10):
 
 
 # 1. SEC EDGAR Form D Scraper & XML Parser
-POSITIVE_KEYWORDS = re.compile(
-    r"\b(venture|ventures|capital|partners|seed|pre-seed|emerging|opportunity\s+fund|ai\s+fund|technology\s+fund|vc)\b|"
-    r"\bfund\s*(i|ii|1|2|one|two)\b",
-    re.IGNORECASE
-)
-
-NEGATIVE_KEYWORDS = re.compile(
-    r"\b(real\s+estate|realty|apartment|residential|housing|mortgage|reit|"
-    r"oil|gas|mining|energy\s+fund|petroleum|mineral|coal|utilities|"
-    r"restaurant|restaurants|film|movie|entertainment\s+fund|cinema|"
-    r"biotech|biotechnology|pharma|pharmaceuticals|therapeutics|sciences|"
-    r"crypto|token|coin|blockchain|digital\s+asset|web3\s+token|"
-    r"credit\s+fund|credit\s+partner|debt\s+fund|debt\s+partner|clo|cdo|bond|yield|"
-    r"warehouse|industrial\s+fund|logistics\s+fund|storage\s+fund)\b",
-    re.IGNORECASE
-)
-
-
 def search_form_d_filings(days, logger=print):
-    """Search SEC EDGAR EFTS index for Form D filings in the last `days` days."""
+    """Search SEC EDGAR EFTS for every Form D filing in the last `days` days.
+
+    Each day is queried separately: a single query for a month returns more
+    filings than the pages we can read, and the oldest days were silently dropped.
+    """
     today = datetime.now()
-    start_date = (today - timedelta(days=days)).strftime("%Y-%m-%d")
-    end_date = today.strftime("%Y-%m-%d")
-    
-    logger(f"Searching SEC EDGAR for Form D filings from {start_date} to {end_date}...")
-    
-    base_url = "https://efts.sec.gov/LATEST/search-index"
-    headers = {
-        "User-Agent": "LeadFinderTeam contact@emergingvcscout.com",
-        "Accept": "application/json"
-    }
-    
+    start = today - timedelta(days=days)
+    logger(f"Searching SEC EDGAR for Form D filings from {start:%Y-%m-%d} to {today:%Y-%m-%d}...")
+
+    headers = {"User-Agent": SEC_USER_AGENT, "Accept": "application/json"}
     filings = []
-    start_from = 0
-    size = 100
-    
-    while True:
-        params = {
-            "q": "",
-            "dateRange": "custom",
-            "startdt": start_date,
-            "enddt": end_date,
-            "forms": "D",
-            "from": start_from,
-            "size": size,
-        }
-        
-        data = None
-        for attempt in range(3):
-            try:
-                time.sleep(0.2)  # Rate limiting compliance
-                r = requests.get(base_url, params=params, headers=headers, timeout=20)
-                if r.status_code == 200:
-                    data = r.json()
-                    break
-                else:
+    seen_ids = set()
+    day = start
+    while day <= today:
+        day_str = day.strftime("%Y-%m-%d")
+        start_from = 0
+        size = 100
+        while start_from < EFTS_MAX_RESULTS:
+            params = {
+                "q": "",
+                "dateRange": "custom",
+                "startdt": day_str,
+                "enddt": day_str,
+                "forms": "D",
+                "from": start_from,
+                "size": size,
+            }
+            data = None
+            for attempt in range(3):
+                try:
+                    time.sleep(0.2)  # Rate limiting compliance
+                    r = requests.get(EFTS_URL, params=params, headers=headers, timeout=20)
+                    if r.status_code == 200:
+                        data = r.json()
+                        break
                     logger(f"    ⚠️ EFTS search returned {r.status_code}. Retrying in 1.5s...")
-                    time.sleep(1.5)
-            except Exception as e:
-                logger(f"    ⚠️ EFTS search exception: {e}. Retrying in 1.5s...")
+                except Exception as e:
+                    logger(f"    ⚠️ EFTS search exception: {e}. Retrying in 1.5s...")
                 time.sleep(1.5)
-        else:
-            logger(f"    ❌ EFTS search failed after 3 attempts.")
-            break
-            
-        if not data:
-            break
-            
-        hits = data.get("hits", {}).get("hits", [])
-        total = data.get("hits", {}).get("total", {}).get("value", 0)
-        
-        if not hits:
-            break
-            
-        for hit in hits:
-            src = hit.get("_source", {})
-            _id = hit.get("_id", "")
-            
-            # Extract adsh and xml filename
-            if ":" in _id:
-                adsh, xml_filename = _id.split(":", 1)
             else:
-                adsh = src.get("adsh", "")
-                xml_filename = "primary_doc.xml"
-                
-            ciks = src.get("ciks", [])
-            cik = ciks[0] if ciks else ""
-            display_name = src.get("display_names", [""])[0] if src.get("display_names") else src.get("entity", "")
-            display_name = re.sub(r"\s*\(CIK\s*\d+\)\s*$", "", display_name).strip()
-            
-            filings.append({
-                "name": display_name,
-                "cik": cik,
-                "adsh": adsh,
-                "xml_filename": xml_filename,
-                "filing_date": src.get("file_date", ""),
-                "form_type": src.get("form", ""),  # D or D/A
-                "biz_locations": src.get("biz_locations", [])
-            })
-            
-        start_from += size
-        if start_from >= total or start_from >= 3000:
-            break
-            
+                logger(f"    ❌ EFTS search failed for {day_str} after 3 attempts.")
+                break
+
+            hits = data.get("hits", {}).get("hits", [])
+            total = data.get("hits", {}).get("total", {}).get("value", 0)
+            for hit in hits:
+                _id = hit.get("_id", "")
+                if _id in seen_ids:
+                    continue
+                seen_ids.add(_id)
+                src = hit.get("_source", {})
+                if ":" in _id:
+                    adsh, xml_filename = _id.split(":", 1)
+                else:
+                    adsh = src.get("adsh", "")
+                    xml_filename = "primary_doc.xml"
+                ciks = src.get("ciks", [])
+                display_name = src.get("display_names", [""])[0] if src.get("display_names") else src.get("entity", "")
+                display_name = re.sub(r"\s*\(CIK\s*\d+\)\s*$", "", display_name).strip()
+                filings.append({
+                    "name": display_name,
+                    "cik": ciks[0] if ciks else "",
+                    "adsh": adsh,
+                    "xml_filename": xml_filename,
+                    "filing_date": src.get("file_date", ""),
+                    "form_type": src.get("form", ""),  # D or D/A
+                    "biz_locations": src.get("biz_locations", []),
+                })
+            start_from += size
+            if not hits or start_from >= total:
+                break
+        day += timedelta(days=1)
+
     logger(f"  → Found {len(filings)} raw Form D filings in the range.")
     return filings
-
-
-def filter_filings_by_name(filings, logger=print):
-    """Filter filings locally by positive and negative keywords in their name."""
-    candidates = []
-    for f in filings:
-        name = f["name"]
-        
-        # Exclude obvious bad fits
-        if NEGATIVE_KEYWORDS.search(name):
-            continue
-            
-        # Keep positive keywords
-        if POSITIVE_KEYWORDS.search(name):
-            candidates.append(f)
-            
-    logger(f"  → Filtered name candidates: {len(candidates)} / {len(filings)}")
-    return candidates
 
 
 def fetch_form_d_xml(cik, adsh, xml_filename, logger=print):
@@ -194,7 +156,7 @@ def fetch_form_d_xml(cik, adsh, xml_filename, logger=print):
     url = f"https://www.sec.gov/Archives/edgar/data/{cik_numeric}/{adsh_no_dashes}/{xml_filename}"
     
     headers = {
-        "User-Agent": "LeadFinderTeam contact@emergingvcscout.com",
+        "User-Agent": SEC_USER_AGENT,
         "Accept": "application/xml"
     }
     
@@ -349,7 +311,7 @@ NON_VC_FUND_TYPES = {"hedge fund"}
 # Vague SEC industry groups that some venture funds pick; review rather than exclude.
 AMBIGUOUS_INDUSTRIES = {"pooled investment fund", "investing", "other", "other technology"}
 ENTITY_IDENTITY_PATTERN = re.compile(
-    r"\b(llc|l\.l\.c\.?|lp|l\.p\.?|ltd|inc|corp|company|management|manager|"
+    r"\b(llc|l\.l\.c\.?|lp|l\.p\.?|ltd|limited|inc|corp|company|management|manager|trust\w*|"
     r"advisers?|advisors?|partners?|capital|ventures?|fund|gp|group|holdings?)\b",
     re.IGNORECASE
 )
@@ -457,8 +419,13 @@ def names_share_manager_identity(current_name, prior_name):
     return False
 
 
-def build_manager_search_identities(firm_name, clean_name, xml_info):
-    """Build a small, ordered set of strong-to-weak identities for SEC history search."""
+def build_manager_search_identities(firm_name, clean_name, xml_info, skip_contacts=None):
+    """Build a small, ordered set of strong-to-weak identities for SEC history search.
+
+    `skip_contacts` holds normalized phones and addresses shared by many filings
+    (fund administrators, law firms); matching on those says nothing about the manager.
+    """
+    skip_contacts = skip_contacts or set()
     identities = []
     seen = set()
 
@@ -498,12 +465,12 @@ def build_manager_search_identities(firm_name, clean_name, xml_info):
         add("person", name)
 
     phone = str(xml_info.get("phone", "") or "").strip()
-    if len(normalize_phone(phone)) >= 10:
+    if len(normalize_phone(phone)) >= 10 and normalize_phone(phone) not in skip_contacts:
         add("phone", phone)
 
     street = str(xml_info.get("street", "") or "").strip()
     zip_code = str(xml_info.get("zip", "") or "").strip()
-    if street and zip_code:
+    if street and zip_code and normalize_identity(f"{street} {zip_code}") not in skip_contacts:
         add("address", f"{street} {zip_code}")
 
     return identities[:8]
@@ -533,7 +500,7 @@ def search_prior_form_d_filings(query, before_date, logger=print):
         "size": 100,
     }
     headers = {
-        "User-Agent": "LeadFinderTeam contact@emergingvcscout.com",
+        "User-Agent": SEC_USER_AGENT,
         "Accept": "application/json"
     }
 
@@ -618,10 +585,10 @@ def history_filing_url(filing):
     return f"https://www.sec.gov/Archives/edgar/data/{cik}/{adsh.replace('-', '')}/{adsh}-index.htm"
 
 
-def find_manager_history(filing, clean_name, xml_info, cache=None, logger=print):
+def find_manager_history(filing, clean_name, xml_info, cache=None, logger=print, skip_contacts=None):
     """Find strong or supporting evidence that a manager raised an older fund."""
     cache = cache if cache is not None else {}
-    identities = build_manager_search_identities(filing.get("name", ""), clean_name, xml_info)
+    identities = build_manager_search_identities(filing.get("name", ""), clean_name, xml_info, skip_contacts)
     result = {
         "checked": False,
         "found": False,
@@ -634,6 +601,7 @@ def find_manager_history(filing, clean_name, xml_info, cache=None, logger=print)
         "filing_name": "",
         "filing_url": "",
         "matched_identity": "",
+        "matched_kind": "",
     }
     if not identities:
         return result
@@ -733,6 +701,7 @@ def find_manager_history(filing, clean_name, xml_info, cache=None, logger=print)
             "filing_name": prior.get("name", ""),
             "filing_url": history_filing_url(prior),
             "matched_identity": identity["value"],
+            "matched_kind": identity["kind"],
         })
         if strong_matches:
             result["reason"] = (
@@ -758,6 +727,32 @@ def find_manager_history(filing, clean_name, xml_info, cache=None, logger=print)
     return result
 
 
+def shares_manager_brand(current_name, prior_name):
+    """True when a prior filing carries the current fund's distinctive brand word."""
+    current = {t for t in manager_brand_tokens(clean_firm_name(current_name)) if len(t) >= 3}
+    prior = {t for t in manager_brand_tokens(prior_name) if len(t) >= 3}
+    if current & prior:
+        return True
+    # Names made only of short or generic words ("U.S. Venture Partners") compare whole
+    current_text = normalize_identity(clean_firm_name(current_name))
+    prior_text = normalize_identity(prior_name)
+    return bool(current_text) and len(current_text) >= 4 and current_text in prior_text
+
+
+def is_founder_spinout(firm_name, history):
+    """A person on the new fund appeared on an older fund with a different brand.
+
+    That is what a partner leaving another firm, or an angel who ran SPVs under
+    another name, looks like when starting a first fund. It is not the same
+    manager raising again.
+    """
+    return bool(
+        history.get("found")
+        and history.get("matched_kind") == "person"
+        and not shares_manager_brand(firm_name, history.get("filing_name", ""))
+    )
+
+
 def assess_manager_novelty(filing, xml_info, fund_stage, history):
     """Turn SEC history evidence into the product-facing manager verdict."""
     firm_name = filing.get("name", "")
@@ -766,6 +761,11 @@ def assess_manager_novelty(filing, xml_info, fund_stage, history):
         formed_recently = int(xml_info.get("year_inc")) >= datetime.now().year - 1
     except (TypeError, ValueError):
         pass
+
+    spinout = fund_stage in {"Fund I", "Emerging Fund"} and is_founder_spinout(firm_name, history)
+    founder_history = history
+    if spinout:
+        history = {**history, "found": False, "checked": True, "weak_match": False}
 
     if history.get("found"):
         code = "existing_manager"
@@ -839,6 +839,21 @@ def assess_manager_novelty(filing, xml_info, fund_stage, history):
         confidence = "Low"
         reason = "No prior manager match, but the filing lacks a strong Fund I or recent-formation signal."
 
+    if spinout:
+        note = (
+            f"{founder_history.get('matched_identity', 'A founder')} appears on an older, differently "
+            f"named fund filing ({founder_history.get('filing_name', 'older fund')}, "
+            f"{founder_history.get('first_filing_date', 'date unavailable')}): likely a partner "
+            "starting their own firm."
+        )
+        if code == "likely_new":
+            status = "Likely new firm, experienced founder"
+            score -= 10
+            confidence = "Medium"
+            reason = note
+        else:
+            reason = f"{reason} {note}"
+
     return {
         "manager_status_code": code,
         "manager_status": status,
@@ -870,6 +885,25 @@ TRAILING_SEQUENCE_PATTERN = re.compile(
     re.IGNORECASE
 )
 ROMAN_NUMERALS = {"i": 1, "ii": 2, "iii": 3, "iv": 4, "v": 5, "vi": 6, "vii": 7, "viii": 8, "ix": 9}
+# Standalone roman numerals of three or more anywhere in the name, with an optional
+# share-class suffix: "Bessemer Venture Partners XIII", "Lux Ventures VIII-A", "X-F".
+LATER_ROMAN_PATTERN = re.compile(
+    r"(?<![a-z0-9])(x{1,3}(?:ix|iv|v?i{0,3})|ix|iv|v|vi{1,3}|iii)(?:-[a-z0-9]{1,3})?(?![a-z0-9])",
+    re.IGNORECASE,
+)
+
+
+def roman_value(token):
+    values = {"i": 1, "v": 5, "x": 10}
+    total = 0
+    token = token.lower()
+    for index, char in enumerate(token):
+        value = values[char]
+        if index + 1 < len(token) and values[token[index + 1]] > value:
+            total -= value
+        else:
+            total += value
+    return total
 
 
 def trailing_fund_number(firm_name):
@@ -897,6 +931,15 @@ def classify_fund_stage(firm_name):
         return "Fund I"
     if FOLLOW_ON_FUND_PATTERN.search(firm_name):
         return "Later Fund"
+    for match in LATER_ROMAN_PATTERN.finditer(firm_name):
+        # A numeral that opens the name is a brand ("VI Capital"), and a lone "V"
+        # is often an initial, so it only counts at the end of the name
+        if match.start() == 0:
+            continue
+        if match.group(1).lower() == "v" and trailing_fund_number(firm_name) != 5:
+            continue
+        if roman_value(match.group(1)) >= 3:
+            return "Later Fund"
     number = trailing_fund_number(firm_name)
     if number == 1:
         return "Fund I"
@@ -934,10 +977,26 @@ def reassess_saved_lead(row):
     code = row.get("manager_status_code") or "not_checked"
     fund_stage = classify_fund_stage(name)
     row["fund_stage"] = fund_stage
+    industry, fund_type = split_saved_issues(row.get("issues"))
     if code == "existing_manager":
+        reason = str(row.get("manager_history_reason") or "")
+        history = {
+            "found": reason.startswith("Prior fund filing matched person"),
+            "matched_kind": "person",
+            "checked": True,
+            "reason": reason,
+            "count": row.get("manager_history_count", 0),
+            "filing_name": row.get("manager_history_name", ""),
+            "filing_url": row.get("manager_history_url", ""),
+            "first_filing_date": row.get("manager_first_filing_date", ""),
+            "matched_identity": row.get("manager_matched_identity", ""),
+        }
+        if fund_stage in {"Fund I", "Emerging Fund"} and is_founder_spinout(name, history):
+            info = {"year_inc": row.get("year_inc"), "industry_group": industry, "investment_fund_type": fund_type}
+            row.update(assess_manager_novelty({"name": name}, info, fund_stage, history))
+            row["signal_type"] = row["manager_status"]
         return row
 
-    industry, fund_type = split_saved_issues(row.get("issues"))
     override = None
     reason = non_vc_reason(industry, fund_type)
     if reason:
@@ -1443,23 +1502,151 @@ def get_linkedin_urls(firm_name):
         company_url = f"https://www.linkedin.com/search/results/companies/?keywords={q}"
         team_url = f"https://www.linkedin.com/search/results/people/?keywords={q}+AND+(%22general+partner%22+OR+%22managing+director%22+OR+%22founder%22+OR+%22partner%22)"
     return company_url, team_url# Lead Enricher and Execution Engine
+# Rows re-checked per run: never checked, incomplete searches, or blocked by a shared contact.
+RECHECK_LIMIT = 150
+# A phone or address on this many saved filings belongs to an administrator or law firm.
+SHARED_CONTACT_MIN_FILINGS = 5
+# Non-VC filings are remembered this long so they are not downloaded again.
+SEEN_FILINGS_DAYS = 400
+
+
+def needs_recheck(row):
+    """True when a saved row's manager check never finished or relied on a shared contact."""
+    reason = str(row.get("manager_history_reason") or "")
+    return (
+        (row.get("manager_status_code") or "not_checked") == "not_checked"
+        or "incomplete" in reason
+        or reason.startswith("Only a shared")
+    )
+
+
+def saved_contact_keys(row):
+    """Normalized phone and street+zip of a saved row, in the form history search uses."""
+    keys = []
+    phone = normalize_phone(row.get("phone"))
+    if len(phone) >= 10:
+        keys.append(phone)
+    address = str(row.get("address") or "")
+    parts = [part.strip() for part in address.split(",")]
+    zip_match = re.search(r"(\d{5})(?:-\d{4})?\s*$", address)
+    if parts and parts[0] and zip_match:
+        keys.append(normalize_identity(f"{parts[0]} {zip_match.group(1)}"))
+    return keys
+
+
+def shared_contacts(rows):
+    counts = {}
+    for row in rows:
+        for key in saved_contact_keys(row):
+            counts[key] = counts.get(key, 0) + 1
+    return {key for key, count in counts.items() if count >= SHARED_CONTACT_MIN_FILINGS}
+
+
+def filing_from_saved_row(row):
+    return {
+        "name": row.get("name") or row.get("firm_name", ""),
+        "cik": row.get("crd", ""),
+        "adsh": row.get("sec_number", ""),
+        "xml_filename": "primary_doc.xml",
+        "filing_date": row.get("filing_date", ""),
+        "form_type": "D",
+        "recheck": True,
+    }
+
+
+def seen_filings_path(output_file):
+    return os.path.join(os.path.dirname(os.path.abspath(output_file)), "SEC_SEEN_FILINGS.json")
+
+
+def load_seen_filings(path):
+    """Accession numbers already downloaded and found not to be VC leads."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def save_seen_filings(path, seen):
+    cutoff = (datetime.now() - timedelta(days=SEEN_FILINGS_DAYS)).strftime("%Y-%m-%d")
+    kept = {adsh: filed for adsh, filed in seen.items() if (filed or "9999") >= cutoff}
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(dict(sorted(kept.items())), f, indent=0)
+
+
+def load_saved_leads(output_file):
+    """Read the master CSV, applying the current verdict rules and dropping non-VC rows."""
+    saved = {}
+    if not os.path.exists(output_file):
+        return saved
+    try:
+        with open(output_file, "r", encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                if not row.get("crd"):  # CRD contains CIK here
+                    continue
+                row["is_new_since_last_run"] = "no"
+                row["first_seen_at"] = row.get("first_seen_at") or row.get("filing_date") or ""
+                row["last_seen_at"] = row.get("last_seen_at") or row.get("filing_date") or ""
+                row["manager_status_code"] = row.get("manager_status_code") or "not_checked"
+                row["manager_status"] = row.get("manager_status") or "Not checked"
+                row["manager_novelty_score"] = row.get("manager_novelty_score") or "0"
+                row["manager_confidence"] = row.get("manager_confidence") or "Unknown"
+                row["manager_history_reason"] = row.get("manager_history_reason") or "Run the pipeline again to check SEC manager history."
+                if reassess_saved_lead(row)["manager_status_code"] == "not_vc":
+                    continue
+                saved[row["crd"]] = row
+    except Exception:
+        pass
+    return saved
+
+
 def run_pipeline(days=30, lead_type="vc", min_size=0, output_file="ALL_VC_LEADS.csv", logger=print):
     """Executes the lead finder pipeline using SEC EDGAR Form D search and scoring."""
     run_started_at = datetime.now().isoformat(timespec="seconds")
     logger(f"🚀 Starting Form D Lead Pipeline | Days: {days} | Target: {lead_type.upper()}")
     
-    # 1. Search EFTS index for Form D filings in the range
+    all_leads_dict = load_saved_leads(output_file)
+    saved_rows = list(all_leads_dict.values())
+    skip_contacts = shared_contacts(saved_rows)
+    seen_path = seen_filings_path(output_file)
+    seen_filings = load_seen_filings(seen_path)
+    checked_adsh = {row.get("sec_number") for row in saved_rows if not needs_recheck(row)}
+
+    # 1. Search EFTS for every Form D filing in the range
     raw_filings = search_form_d_filings(days, logger=logger)
-    
-    # 2. Filter locally by name keywords
-    candidates = filter_filings_by_name(raw_filings, logger=logger)
-    
-    logger(f"🔍 Found {len(candidates)} candidate filings. Fetching Form D details...")
-    
+
+    # 2. Only new original filings need downloading; everything else was checked before.
+    # Every filing's fund type is read from its XML instead of guessing from its name.
+    candidates = []
+    queued = set()
+    for f in raw_filings:
+        adsh = f.get("adsh")
+        if f.get("form_type") != "D" or not adsh or adsh in queued:
+            continue
+        if adsh in checked_adsh or adsh in seen_filings:
+            continue
+        queued.add(adsh)
+        candidates.append(f)
+    new_count = len(candidates)
+
+    # 3. Re-check saved rows whose manager check never finished, newest first
+    recheck_rows = sorted(
+        (row for row in saved_rows if needs_recheck(row) and row.get("sec_number") not in queued),
+        key=lambda row: row.get("filing_date", ""),
+        reverse=True,
+    )[:RECHECK_LIMIT]
+    candidates.extend(filing_from_saved_row(row) for row in recheck_rows)
+
+    logger(
+        f"🔍 {new_count} new filings to read, {len(recheck_rows)} saved leads to re-check, "
+        f"{len(skip_contacts)} shared admin contacts ignored. Fetching Form D details..."
+    )
+
     enriched_leads = []
     history_cache = {}
     target_count = len(candidates)
-    
+
     for done, c in enumerate(candidates, 1):
         cik = c["cik"]
         adsh = c["adsh"]
@@ -1481,13 +1668,16 @@ def run_pipeline(days=30, lead_type="vc", min_size=0, output_file="ALL_VC_LEADS.
 
             fund_stage = classify_fund_stage(firm_name)
 
-            if not lead_matches_target(c, xml_info, fund_stage, lead_type, min_size, days):
+            # Saved leads already passed the freshness gate when they were found
+            if not c.get("recheck") and not lead_matches_target(c, xml_info, fund_stage, lead_type, min_size, days):
                 logger(f"    ↳ Skipped: not a fresh {lead_type.upper()} target.")
+                seen_filings[adsh] = c.get("filing_date", "")
                 continue
 
             non_vc = non_vc_reason(xml_info.get("industry_group"), xml_info.get("investment_fund_type"))
             if non_vc:
                 logger(f"    ↳ Dropped: {non_vc}")
+                seen_filings[adsh] = c.get("filing_date", "")
                 continue
 
             history = find_manager_history(
@@ -1495,7 +1685,8 @@ def run_pipeline(days=30, lead_type="vc", min_size=0, output_file="ALL_VC_LEADS.
                 clean_name,
                 xml_info,
                 cache=history_cache,
-                logger=logger
+                logger=logger,
+                skip_contacts=skip_contacts,
             )
             manager_assessment = assess_manager_novelty(c, xml_info, fund_stage, history)
             logger(
@@ -1589,28 +1780,11 @@ def run_pipeline(days=30, lead_type="vc", min_size=0, output_file="ALL_VC_LEADS.
         except Exception as ex:
             logger(f"    ❌ Error processing lead: {ex}")
             
-    # Load and merge existing leads if file exists
-    all_leads_dict = {}
-    if os.path.exists(output_file):
-        try:
-            with open(output_file, "r", encoding="utf-8") as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    if row.get("crd"): # CRD contains CIK here
-                        row["is_new_since_last_run"] = "no"
-                        row["first_seen_at"] = row.get("first_seen_at") or row.get("filing_date") or ""
-                        row["last_seen_at"] = row.get("last_seen_at") or row.get("filing_date") or ""
-                        row["manager_status_code"] = row.get("manager_status_code") or "not_checked"
-                        row["manager_status"] = row.get("manager_status") or "Not checked"
-                        row["manager_novelty_score"] = row.get("manager_novelty_score") or "0"
-                        row["manager_confidence"] = row.get("manager_confidence") or "Unknown"
-                        row["manager_history_reason"] = row.get("manager_history_reason") or "Run the pipeline again to check SEC manager history."
-                        if reassess_saved_lead(row)["manager_status_code"] == "not_vc":
-                            continue
-                        all_leads_dict[row["crd"]] = row
-        except Exception:
-            pass
-            
+    scanned_adsh = {f.get("adsh") for f in raw_filings}
+    for row in all_leads_dict.values():
+        if row.get("sec_number") in scanned_adsh:
+            row["last_seen_at"] = run_started_at
+
     # Merge new leads
     merged_count = 0
     for lead in enriched_leads:
@@ -1684,6 +1858,7 @@ def run_pipeline(days=30, lead_type="vc", min_size=0, output_file="ALL_VC_LEADS.
         for lead in final_list:
             w.writerow(lead)
             
+    save_seen_filings(seen_path, seen_filings)
     logger(f"✅ Pipeline Completed! Saved {len(final_list)} unique leads (Added {merged_count} new filings in this run) to {output_file}")
     return len(final_list)
 
