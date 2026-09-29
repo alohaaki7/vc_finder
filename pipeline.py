@@ -303,7 +303,9 @@ def check_related_people_roles(related_people):
 HISTORY_START_DATE = "2001-01-01"
 FUND_VEHICLE_PATTERN = re.compile(
     r"\b(a\s+series\s+of|series\s+of|series\s+[a-z]?\d+[a-z]?|special\s+purpose\s+vehicle|spv\s*\d*|syndicate|"
-    r"co[-\s]?invest(?:ment)?\s+vehicle|joint\s+venture)\b",
+    r"co[-\s]?invest(?:ment)?\s+vehicle|joint\s+venture|feeder|blocker|blocked)\b"
+    # "Fund LLC - Series I", "Growth-A", "Fund 2027-Q": classes and sub-vehicles of one fund
+    r"|-\s*series\b|\b[a-z]+-[a-z]\d?,?\s+(?:l\.?\s?p\.?|llc)\b|\b20\d{2}-[a-z]\b",
     re.IGNORECASE
 )
 # Pooled fund types that are never venture capital.
@@ -894,7 +896,7 @@ LATER_ROMAN_PATTERN = re.compile(
 
 
 def roman_value(token):
-    values = {"i": 1, "v": 5, "x": 10}
+    values = {"i": 1, "v": 5, "x": 10, "l": 50, "c": 100}
     total = 0
     token = token.lower()
     for index, char in enumerate(token):
@@ -930,6 +932,10 @@ def classify_fund_stage(firm_name):
     if FUND_I_PATTERN.search(firm_name):
         return "Fund I"
     if FOLLOW_ON_FUND_PATTERN.search(firm_name):
+        return "Later Fund"
+    # Long numerals such as "CXXXIII" mark a platform's numbered deal series
+    if any(re.fullmatch(r"[clxvi]{4,}", token, re.IGNORECASE) and roman_value(token) >= 3
+           for token in re.findall(r"[A-Za-z]+", firm_name)[1:]):
         return "Later Fund"
     for match in LATER_ROMAN_PATTERN.finditer(firm_name):
         # A numeral that opens the name is a brand ("VI Capital"), and a lone "V"

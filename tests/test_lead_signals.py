@@ -1,6 +1,8 @@
 import unittest
 
-from lead_signals import AdvIndex, early_signal, is_fund2_raise, mark_fund2_raises, same_brand, sec_people
+from datetime import datetime
+
+from lead_signals import AdvIndex, early_signal, is_fund2_raise, mark_fund2_raises, mark_repeat_filers, same_brand, sec_people
 
 
 def adv(crd, name, phone="", state="CA", registered="2026-08-21"):
@@ -97,6 +99,20 @@ class Fund2RaiseTests(unittest.TestCase):
     def test_company_names_are_not_people(self):
         row = {"all_contacts": "CHC II Limited (Director); Ye Zhang (Director)"}
         self.assertEqual(sec_people(row), ["Ye Zhang"])
+
+
+class RepeatFilerTests(unittest.TestCase):
+    def lead(self, name, people, code="likely_new"):
+        return {"name": name, "manager_status_code": code, "filing_date": "2026-09-20",
+                "all_contacts": "; ".join(f"{person} (Executive Officer)" for person in people)}
+
+    def test_platform_vehicles_move_to_review(self):
+        leads = [self.lead(f"AVSF - Deal {n} 2026, LLC", ["Pat Platform"]) for n in range(3)]
+        leads.append(self.lead("Atomus Fund I, L.P.", ["Kyo Choi"]))
+        mark_repeat_filers(leads, today=datetime(2026, 9, 29))
+        self.assertEqual([lead["manager_status_code"] for lead in leads],
+                         ["needs_review", "needs_review", "needs_review", "likely_new"])
+        self.assertIn("SPV platform", leads[0]["manager_history_reason"])
 
 
 if __name__ == "__main__":

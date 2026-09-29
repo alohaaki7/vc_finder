@@ -17,7 +17,7 @@ from datetime import date, datetime, timezone
 from flask import Flask, jsonify, request, send_from_directory, render_template_string
 from pipeline import clean_firm_name, extract_related_name, is_entity_identity, reassess_saved_lead, run_pipeline
 from build_research_backlog import build as build_research_backlog, build_rows as build_research_backlog_rows
-from lead_signals import AdvIndex, early_signal, mark_fund2_raises, sec_people
+from lead_signals import AdvIndex, early_signal, mark_fund2_raises, mark_repeat_filers, sec_people
 from pipeline import normalize_phone
 
 app = Flask(__name__, static_folder="templates")
@@ -109,6 +109,7 @@ def load_display_leads():
     for lead in leads:
         lead.update(adv_index.match(lead, lead["linkedin_search_firm"], phone_counts) or {})
     mark_fund2_raises(leads)
+    mark_repeat_filers(leads)
 
     _leads_cache.update(key=key, leads=leads)
     return leads
@@ -338,54 +339,27 @@ def get_research_backlog():
 
 @app.route("/api/stats", methods=["GET"])
 def get_stats():
-    """Compute high-level lead dashboard stats from the CSV file."""
-    if not os.path.exists(LEADS_FILE):
-        return jsonify({
-            "total_leads": 0,
-            "new_since_last_run": 0,
-            "likely_new_firms": 0,
-            "existing_managers": 0,
-            "needs_review": 0,
-            "not_checked": 0
-        })
-
-    total = 0
+    """Dashboard counters, computed from the same prepared leads the table shows."""
+    counts = {"likely_new": 0, "existing_manager": 0, "needs_review": 0, "not_checked": 0}
     new_since_last_run = 0
-    likely_new_firms = 0
-    existing_managers = 0
-    needs_review = 0
-    not_checked = 0
-
-    try:
-        with open(LEADS_FILE, "r", encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                manager_status = reassess_saved_lead(row).get("manager_status_code") or "not_checked"
-                if manager_status == "not_vc":
-                    continue
-                total += 1
-                if str(row.get("is_new_since_last_run", "")).lower() == "yes":
-                    new_since_last_run += 1
-
-                if manager_status == "likely_new":
-                    likely_new_firms += 1
-                elif manager_status == "existing_manager":
-                    existing_managers += 1
-                elif manager_status == "needs_review":
-                    needs_review += 1
-                else:
-                    not_checked += 1
-
-    except Exception as e:
-        return jsonify({"error": f"Error gathering stats: {e}"}), 500
-
+    leads = []
+    if os.path.exists(LEADS_FILE):
+        try:
+            leads = load_display_leads()
+        except Exception as e:
+            return jsonify({"error": f"Error gathering stats: {e}"}), 500
+    for lead in leads:
+        code = lead.get("manager_status_code") or "not_checked"
+        counts[code if code in counts else "not_checked"] += 1
+        if str(lead.get("is_new_since_last_run", "")).lower() == "yes":
+            new_since_last_run += 1
     return jsonify({
-        "total_leads": total,
+        "total_leads": len(leads),
         "new_since_last_run": new_since_last_run,
-        "likely_new_firms": likely_new_firms,
-        "existing_managers": existing_managers,
-        "needs_review": needs_review,
-        "not_checked": not_checked
+        "likely_new_firms": counts["likely_new"],
+        "existing_managers": counts["existing_manager"],
+        "needs_review": counts["needs_review"],
+        "not_checked": counts["not_checked"],
     })
 
 

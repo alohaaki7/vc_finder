@@ -137,10 +137,21 @@ class FounderSpinoutTests(unittest.TestCase):
         self.assertEqual(reassess_saved_lead(row)["manager_status_code"], "likely_new")
 
 
+class VehicleNameTests(unittest.TestCase):
+    def test_share_classes_and_sub_vehicles_are_not_new_firms(self):
+        from pipeline import FUND_VEHICLE_PATTERN
+        for name in ["Imagine Access Fund LLC - Series I", "Sense Feeder LP",
+                     "ARMRA Capital Partners Growth-A, LP", "Oregon Venture Fund 2027-Q, LLC"]:
+            self.assertTrue(FUND_VEHICLE_PATTERN.search(name), name)
+        for name in ["Atomus Fund I, L.P.", "Decimal Capital Fund I LP", "BL.vc Deep Tech 1, L.P."]:
+            self.assertFalse(FUND_VEHICLE_PATTERN.search(name), name)
+
+
 class LaterFundTests(unittest.TestCase):
     def test_numerals_in_the_middle_of_the_name(self):
         for name in ["Bessemer Venture Partners XIII L.P.", "Lux Ventures VIII-A, L.P.",
-                     "First Round Capital X-F, L.P.", "Sparrow Capital III Trust"]:
+                     "First Round Capital X-F, L.P.", "Sparrow Capital III Trust",
+                     "SCP Opportunity CXXXIII LP"]:
             self.assertEqual(classify_fund_stage(name), "Later Fund", name)
 
     def test_brand_numerals_and_first_funds(self):
