@@ -4,6 +4,7 @@
 - `sec_people`: the human names listed on a Form D, skipping GP and management entities.
 - `AdvIndex`: links a Form D lead to an SEC adviser (Form ADV) registration.
 - `is_fund2_raise` / `mark_fund2_raises`: managers raising a second main venture fund.
+- `mark_repeat_filers`: "new" filings from people who file many vehicles (SPV platforms).
 
 These are research aids. A match is a pointer to check, not a verified identity.
 """
@@ -12,7 +13,7 @@ import csv
 import html
 import os
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from pipeline import (
     FUND_VEHICLE_PATTERN,
@@ -190,4 +191,40 @@ def mark_fund2_raises(leads):
             newest[key] = lead
     for lead in newest.values():
         lead["fund2_raise"] = True
+    return leads
+
+
+# People named on this many filings within the window run an SPV platform or
+# syndicate, so each new vehicle they file is not a new firm launching.
+REPEAT_FILER_MIN_FILINGS = 3
+REPEAT_FILER_WINDOW_DAYS = 180
+
+
+def mark_repeat_filers(leads, today=None):
+    """Move likely-new filings from repeat filers to review, with the reason."""
+    today = today or datetime.now()
+    cutoff = (today - timedelta(days=REPEAT_FILER_WINDOW_DAYS)).strftime("%Y-%m-%d")
+    counts = {}
+    for lead in leads:
+        if str(lead.get("filing_date") or "") < cutoff:
+            continue
+        for person in {name.lower() for name in sec_people(lead, limit=10)}:
+            counts[person] = counts.get(person, 0) + 1
+    for lead in leads:
+        if lead.get("manager_status_code") != "likely_new":
+            continue
+        repeats = sorted(
+            (counts.get(name.lower(), 0), name) for name in sec_people(lead, limit=10)
+            if counts.get(name.lower(), 0) >= REPEAT_FILER_MIN_FILINGS
+        )
+        if not repeats:
+            continue
+        filings, person = repeats[-1]
+        lead["manager_status_code"] = "needs_review"
+        lead["manager_status"] = "Needs review"
+        lead["signal_type"] = "Needs review"
+        lead["manager_history_reason"] = (
+            f"{person} is named on {filings} filings in the last {REPEAT_FILER_WINDOW_DAYS} days: "
+            "likely an SPV platform or syndicate filing another vehicle, not a new firm."
+        )
     return leads
