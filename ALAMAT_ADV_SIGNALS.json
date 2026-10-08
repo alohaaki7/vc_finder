@@ -1,11 +1,11 @@
 {
-  "total_firms_scanned": 23959,
-  "signals_written": 6855,
-  "feed_date": "2026-10-07",
-  "source_url": "https://reports.adviserinfo.sec.gov/reports/CompilationReports/IA_FIRM_SEC_Feed_10_07_2026.xml.gz",
+  "total_firms_scanned": 23962,
+  "signals_written": 6856,
+  "feed_date": "2026-10-08",
+  "source_url": "https://reports.adviserinfo.sec.gov/reports/CompilationReports/IA_FIRM_SEC_Feed_10_08_2026.xml.gz",
   "counts": {
-    "explicit_venture_exemption": 2314,
+    "explicit_venture_exemption": 2313,
     "possible_venture_manager": 319,
-    "strategy_unresolved": 4222
+    "strategy_unresolved": 4224
   }
 }
