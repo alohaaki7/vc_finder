@@ -303,7 +303,7 @@ def check_related_people_roles(related_people):
 HISTORY_START_DATE = "2001-01-01"
 FUND_VEHICLE_PATTERN = re.compile(
     r"\b(a\s+series\s+of|series\s+of|series\s+[a-z]?\d+[a-z]?|special\s+purpose\s+vehicle|spv\s*\d*|syndicate|"
-    r"co[-\s]?invest(?:ment)?\s+vehicle|joint\s+venture|feeder|blocker|blocked)\b"
+    r"co[-\s]?invest(?:ment)?\s+vehicle|joint\s+venture|feeder|blocker|blocked|parallel)\b"
     # "Fund LLC - Series I", "Growth-A", "Fund 2027-Q": classes and sub-vehicles of one fund
     r"|-\s*series\b|\b[a-z]+-[a-z]\d?,?\s+(?:l\.?\s?p\.?|llc)\b|\b20\d{2}-[a-z]\b",
     re.IGNORECASE
@@ -738,7 +738,12 @@ def shares_manager_brand(current_name, prior_name):
     # Names made only of short or generic words ("U.S. Venture Partners") compare whole
     current_text = normalize_identity(clean_firm_name(current_name))
     prior_text = normalize_identity(prior_name)
-    return bool(current_text) and len(current_text) >= 4 and current_text in prior_text
+    if current_text and len(current_text) >= 4 and current_text in prior_text:
+        return True
+    current_first = (current_text.split() or [""])[0]
+    prior_first = (prior_text.split() or [""])[0]
+    shorter = min(current_first, prior_first, key=len)
+    return len(shorter) >= 3 and (current_first.startswith(prior_first) or prior_first.startswith(current_first))
 
 
 def is_founder_spinout(firm_name, history):
@@ -764,7 +769,9 @@ def assess_manager_novelty(filing, xml_info, fund_stage, history):
     except (TypeError, ValueError):
         pass
 
-    spinout = fund_stage in {"Fund I", "Emerging Fund"} and is_founder_spinout(firm_name, history)
+    # Unnumbered names are too often a known manager's new vehicle (e.g. "CBT1, LLC"),
+    # so only a fund named as a first fund counts as a partner starting their own firm.
+    spinout = fund_stage == "Fund I" and is_founder_spinout(firm_name, history)
     founder_history = history
     if spinout:
         history = {**history, "found": False, "checked": True, "weak_match": False}
@@ -895,6 +902,14 @@ LATER_ROMAN_PATTERN = re.compile(
 )
 
 
+# A small fund number in the middle of a name, before a legal suffix or vehicle word:
+# "Greenoaks 7 Parallel LP", "01 Advisors 04, L.P." ("Route 9 Ventures" is a brand).
+MID_NAME_NUMBER_PATTERN = re.compile(
+    r"(?<=\s)0?([2-9]|1\d)(?=\s*(?:,|-|\(|$|(?:parallel|feeder|offshore|fund|l\.?\s?p\.?|llc|ltd)\b))",
+    re.IGNORECASE,
+)
+
+
 def roman_value(token):
     values = {"i": 1, "v": 5, "x": 10, "l": 50, "c": 100}
     total = 0
@@ -946,6 +961,11 @@ def classify_fund_stage(firm_name):
             continue
         if roman_value(match.group(1)) >= 3:
             return "Later Fund"
+    mid_number = MID_NAME_NUMBER_PATTERN.search(firm_name)
+    if mid_number and re.search(r"\b(series|spv|class|tranche|no\.?)\s*$", firm_name[:mid_number.start()], re.IGNORECASE):
+        mid_number = None  # "Series 4" numbers a deal vehicle, not a fund
+    if mid_number and not FUND_II_PATTERN.search(firm_name):
+        return "Fund II" if int(mid_number.group(1)) == 2 else "Later Fund"
     number = trailing_fund_number(firm_name)
     if number == 1:
         return "Fund I"
@@ -984,6 +1004,25 @@ def reassess_saved_lead(row):
     fund_stage = classify_fund_stage(name)
     row["fund_stage"] = fund_stage
     industry, fund_type = split_saved_issues(row.get("issues"))
+    if code == "likely_new" and str(row.get("manager_status") or "").endswith("experienced founder"):
+        history = {
+            "found": True, "matched_kind": "person",
+            "filing_name": row.get("manager_history_name", ""),
+            "matched_identity": row.get("manager_matched_identity", ""),
+        }
+        if not (fund_stage == "Fund I" and is_founder_spinout(name, history)):
+            row.update({
+                "manager_status_code": "existing_manager",
+                "manager_status": "Existing manager",
+                "signal_type": "Existing manager",
+                "manager_novelty_score": 5,
+                "manager_confidence": "High",
+                "manager_history_reason": (
+                    f"Prior fund filing matched person '{history['matched_identity']}': "
+                    f"{history['filing_name']} ({row.get('manager_first_filing_date', '')})."
+                ),
+            })
+            return row
     if code == "existing_manager":
         reason = str(row.get("manager_history_reason") or "")
         history = {
@@ -997,7 +1036,7 @@ def reassess_saved_lead(row):
             "first_filing_date": row.get("manager_first_filing_date", ""),
             "matched_identity": row.get("manager_matched_identity", ""),
         }
-        if fund_stage in {"Fund I", "Emerging Fund"} and is_founder_spinout(name, history):
+        if fund_stage == "Fund I" and is_founder_spinout(name, history):
             info = {"year_inc": row.get("year_inc"), "industry_group": industry, "investment_fund_type": fund_type}
             row.update(assess_manager_novelty({"name": name}, info, fund_stage, history))
             row["signal_type"] = row["manager_status"]

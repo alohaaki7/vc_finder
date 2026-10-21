@@ -127,6 +127,22 @@ class FounderSpinoutTests(unittest.TestCase):
                                          self.person_history("Altimeter Private SPV I, L.P."))
         self.assertEqual(verdict["manager_status_code"], "existing_manager")
 
+    def test_unnumbered_vehicle_of_known_manager_stays_existing(self):
+        info = {"year_inc": str(datetime.now().year), "industry_group": "Pooled Investment Fund",
+                "investment_fund_type": "Venture Capital Fund"}
+        history = {**self.person_history("AI2 Investment Partners-A, LLC"), "matched_identity": "Sarah Guo"}
+        verdict = assess_manager_novelty({"name": "CBT1, LLC"}, info, "Emerging Fund", history)
+        self.assertEqual(verdict["manager_status_code"], "existing_manager")
+
+    def test_saved_row_from_looser_rule_goes_back_to_existing(self):
+        row = {
+            "name": "CBT1, LLC", "manager_status_code": "likely_new",
+            "manager_status": "Likely new firm, experienced founder",
+            "manager_history_name": "AI2 Investment Partners-A, LLC", "manager_matched_identity": "Sarah Guo",
+            "manager_first_filing_date": "2020-01-29", "issues": "Pooled Investment Fund - Venture Capital Fund",
+        }
+        self.assertEqual(reassess_saved_lead(row)["manager_status_code"], "existing_manager")
+
     def test_saved_row_is_reclassified(self):
         row = {
             "name": "Decimal Capital Fund I LP", "manager_status_code": "existing_manager",
@@ -151,12 +167,13 @@ class LaterFundTests(unittest.TestCase):
     def test_numerals_in_the_middle_of_the_name(self):
         for name in ["Bessemer Venture Partners XIII L.P.", "Lux Ventures VIII-A, L.P.",
                      "First Round Capital X-F, L.P.", "Sparrow Capital III Trust",
-                     "SCP Opportunity CXXXIII LP"]:
+                     "SCP Opportunity CXXXIII LP", "Greenoaks 7 Parallel LP", "01 Advisors 04, L.P."]:
             self.assertEqual(classify_fund_stage(name), "Later Fund", name)
 
     def test_brand_numerals_and_first_funds(self):
         self.assertEqual(classify_fund_stage("XL Ventures Fund I"), "Fund I")
         self.assertEqual(classify_fund_stage("VI Capital Fund"), "Emerging Fund")
+        self.assertEqual(classify_fund_stage("Route 9 Ventures LLC"), "Emerging Fund")
 
 
 if __name__ == "__main__":
