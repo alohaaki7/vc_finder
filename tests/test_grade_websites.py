@@ -40,6 +40,13 @@ class GradeTests(unittest.TestCase):
     def test_social_profile_is_not_a_site(self):
         self.assertEqual(self.grade("https://www.linkedin.com/company/atomus", {})["grade"], "social_only")
 
+    def test_medium_blog_is_not_a_site(self):
+        self.assertEqual(self.grade("https://medium.com/@atomus", {})["grade"], "social_only")
+
+    def test_script_only_page_needs_a_human(self):
+        shell = "<html><body><div id='root'></div>" + "<script src='a.js'></script>" * 6 + "</body></html>"
+        self.assertEqual(self.grade("https://atomus.vc", {"https://atomus.vc": shell})["grade"], "blocked")
+
     def test_missing_website(self):
         self.assertEqual(self.grade("", {})["grade"], "none_reported")
 

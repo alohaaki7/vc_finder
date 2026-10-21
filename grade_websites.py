@@ -41,7 +41,7 @@ PAGE_PAUSE_SECONDS = 1.0
 
 SOCIAL_HOSTS = (
     "linkedin.com", "facebook.com", "twitter.com", "x.com", "instagram.com",
-    "wellfound.com", "angel.co", "crunchbase.com",
+    "wellfound.com", "angel.co", "crunchbase.com", "medium.com",
 )
 PARKED_PATTERN = re.compile(
     r"domain (?:name )?(?:is|may be) for sale|buy this domain|this domain is parked|"
@@ -202,8 +202,10 @@ def grade_site(row: dict) -> dict:
     result["final_url"] = response.url
     result["http_status"] = response.status_code
     result["pages_checked"] = 1
-    if response.status_code in (401, 403, 429, 503) and BOT_WALL_PATTERN.search(text or ""):
-        result.update(grade="blocked", evidence=f"HTTP {response.status_code} bot protection; check by hand.")
+    if response.status_code in (401, 403, 406, 409, 429) or (
+        response.status_code == 503 and BOT_WALL_PATTERN.search(text or "")
+    ):
+        result.update(grade="blocked", evidence=f"HTTP {response.status_code}: site refused an automated visit; check by hand.")
         return result
     if response.status_code >= 400:
         result.update(grade="broken", evidence=f"Homepage returns HTTP {response.status_code}.")
@@ -241,6 +243,8 @@ def grade_site(row: dict) -> dict:
         texts.append(visible_text(BeautifulSoup(page_text, "html.parser")))
 
     combined = " ".join(texts)
+    # Chinese, Japanese and Korean text has no spaces; count about two characters as a word
+    cjk_chars = len(re.findall(r"[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]", combined))
     link_labels = " ".join(f"{a.get_text(' ')} {a.get('href', '')}" for a in soup.find_all("a", href=True))
     present = {}
     for element, pattern in ELEMENT_PATTERNS.items():
@@ -259,7 +263,7 @@ def grade_site(row: dict) -> dict:
     if len(external_hosts) >= 3:
         present["portfolio"] = True
     missing = [element for element, found in present.items() if not found]
-    total_words = len(combined.split())
+    total_words = len(combined.split()) + cjk_chars // 2
 
     flags = []
     if not response.url.startswith("https://"):
@@ -284,6 +288,17 @@ def grade_site(row: dict) -> dict:
         flags.append("site_may_belong_to_someone_else")
 
     builder = next((name for name, pattern in BUILDERS if pattern.search(html_all)), "")
+    if cjk_chars > 200:
+        flags.append("non_english_site")
+    script_tags = len(re.findall(r"<script\b", html_all, re.IGNORECASE))
+    if total_words < 40 and (len(html_all) > 30_000 or script_tags >= 5 or re.search(r"<i?frame", html_all, re.IGNORECASE)):
+        result.update(
+            grade="blocked", builder=builder, flags="; ".join(flags),
+            evidence=f"Only {total_words} words in the page source; content probably loads with JavaScript. Check by hand.",
+        )
+        return result
+    if cjk_chars > 200:
+        missing = []  # the English keyword checks cannot read these pages
     if len(missing) >= 2 or total_words < 120:
         grade = "thin_or_incomplete"
         reason = f"Missing {', '.join(missing)}" if missing else "Very little content"
@@ -298,12 +313,13 @@ def grade_site(row: dict) -> dict:
     return result
 
 
-def select_advisers(path: str, since: str, limit: int) -> list[dict]:
+def select_advisers(path: str, since: str, limit: int, until: str = "") -> list[dict]:
     with open(path, encoding="utf-8", newline="") as f:
         rows = [
             row for row in csv.DictReader(f)
             if row.get("vc_signal_strength") == "explicit_venture_exemption"
             and row.get("registration_date", "") >= since
+            and (not until or row.get("registration_date", "") <= until)
         ]
     rows.sort(key=lambda row: row.get("registration_date", ""), reverse=True)
     return rows[:limit] if limit else rows
@@ -314,12 +330,14 @@ def main() -> int:
     parser.add_argument("--adv", default="ALAMAT_ADV_SIGNALS.csv")
     parser.add_argument("--output", default="ADV_WEBSITE_GRADES.csv")
     parser.add_argument("--since", default="2025-01-01", help="Earliest SEC adviser registration date")
+    parser.add_argument("--until", default="", help="Latest SEC adviser registration date (inclusive)")
     parser.add_argument("--limit", type=int, default=0, help="Newest N advisers only (0 = all)")
     parser.add_argument("--workers", type=int, default=6, help="Sites graded in parallel (one page at a time per site)")
     args = parser.parse_args()
 
-    advisers = select_advisers(args.adv, args.since, args.limit)
-    print(f"Grading {len(advisers)} venture-exempt advisers registered since {args.since}...")
+    advisers = select_advisers(args.adv, args.since, args.limit, args.until)
+    window = f"from {args.since} to {args.until}" if args.until else f"since {args.since}"
+    print(f"Grading {len(advisers)} venture-exempt advisers registered {window}...")
     with ThreadPoolExecutor(max_workers=args.workers) as pool:
         results = list(pool.map(grade_site, advisers))
 
