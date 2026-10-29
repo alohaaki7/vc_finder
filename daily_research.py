@@ -133,6 +133,32 @@ def own_site(results: list[dict], words: list[str]) -> tuple[str, int]:
     return "", 0
 
 
+def site_confirms(url: str, brand: str, people: list[str]) -> bool:
+    """The site names the fund (full brand) or a person from the SEC filing.
+
+    A domain containing one brand word is not enough: "Olympus" also matches a
+    medical-devices company and "Upside" a podcast.
+    """
+    try:
+        response = requests.get(url, timeout=20, headers={"User-Agent": grade_websites.USER_AGENT})
+        text = re.sub(r"\s+", " ", response.text).lower()
+    except requests.RequestException:
+        return False
+    text = re.sub(r"[^a-z0-9 ]", " ", text)
+    full_brand = " ".join(re.findall(r"[a-z0-9]+", brand.lower()))
+    if len(full_brand.split()) >= 2 and full_brand in re.sub(r"\s+", " ", text):
+        return True
+    if len(full_brand.split()) == 1 and len(full_brand) >= 5 and full_brand in text:
+        return True
+    surnames = {p.split()[-1].lower() for p in people if len(p.split()) >= 2 and len(p.split()[-1]) >= 4}
+    if any(re.search(rf"\b{re.escape(name)}\b", text) for name in surnames):
+        return True
+    # The first two words of the name together, e.g. "Fidexus Capital" for
+    # "Fidexus Capital Equity Growth" ("Syntropy Capital" does not confirm "Syntropy Ventures")
+    words = full_brand.split()
+    return len(words) >= 2 and " ".join(words[:2]) in text
+
+
 def parse_money(value: str) -> float:
     match = re.match(r"\$?\s*([\d.,]+)\s*([MBK]?)", str(value or "").strip(), re.IGNORECASE)
     if not match:
@@ -196,6 +222,9 @@ def research(priority: str, lead: dict, treg: Treg) -> dict:
                           and any(w in h.replace("-", "") for w in words)), "")
         if cited_own:
             website, source = f"https://{cited_own}/", "Google AI Overview source"
+    unconfirmed = ""
+    if website and source != "SEC adviser record" and not site_confirms(website, brand, people):
+        unconfirmed, website, source = website, "", ""
     cites_own = bool(website) and host_of(website) in citations
 
     keywords = treg.ranked_keywords(host_of(website)) if website and treg.available else []
@@ -208,7 +237,9 @@ def research(priority: str, lead: dict, treg: Treg) -> dict:
         })
 
     points = []
-    if not website:
+    if unconfirmed:
+        points.append(f"Possible site {host_of(unconfirmed)} does not name the fund or its partners; check by hand.")
+    elif not website:
         points.append(f'No website found for "{brand}".')
     elif grade.get("grade") in {"broken", "placeholder", "thin_or_incomplete", "social_only"}:
         points.append(f"Website is {grade['grade'].replace('_', ' ')}: {grade.get('evidence', '')}")
@@ -223,7 +254,9 @@ def research(priority: str, lead: dict, treg: Treg) -> dict:
     elif knows and citations and not cites_own:
         points.append(f"Google's AI describes the fund from {', '.join(sorted(set(citations))[:3])}, not its own site.")
 
-    if not website or grade.get("grade") in {"broken", "placeholder", "thin_or_incomplete", "social_only"}:
+    if unconfirmed:
+        offer = "Check by hand"
+    elif not website or grade.get("grade") in {"broken", "placeholder", "thin_or_incomplete", "social_only"}:
         offer = "Website"
     elif databases or (overview and not cites_own) or not rank:
         offer = "Search & AI visibility + brand"

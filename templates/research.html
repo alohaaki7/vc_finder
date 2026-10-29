@@ -54,6 +54,7 @@
     <button data-offer="Website">Website</button>
     <button data-offer="Search">Search & AI</button>
     <button data-offer="Branding">Branding</button>
+    <button data-offer="Check">Check by hand</button>
   </div>
   <div id="list"></div>
 </div>
@@ -65,6 +66,7 @@
   function offerClass(o) {
     if (o.startsWith('Website')) return 'offer-website';
     if (o.startsWith('Search')) return 'offer-search';
+    if (o.startsWith('Check')) return '';
     return 'offer-brand';
   }
 
