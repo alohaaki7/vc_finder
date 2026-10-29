@@ -252,6 +252,24 @@ def get_leads():
     return response
 
 
+@app.route('/research')
+def research_page():
+    return send_from_directory(TEMPLATE_DIR, 'research.html')
+
+
+@app.route('/api/research')
+def research_data():
+    """Daily researched leads, newest research first."""
+    path = os.path.join(SCRIPT_DIR, 'RESEARCH_LEDGER.csv')
+    if not os.path.exists(path):
+        return jsonify({'rows': [], 'days': []})
+    with open(path, encoding='utf-8', newline='') as f:
+        rows = list(csv.DictReader(f))
+    rows.sort(key=lambda row: row.get('researched_on', ''), reverse=True)
+    days = sorted({row.get('researched_on', '') for row in rows}, reverse=True)
+    return jsonify({'rows': rows, 'days': days})
+
+
 @app.route('/adv')
 def adv_inbox():
     return send_from_directory(TEMPLATE_DIR, 'adv.html')

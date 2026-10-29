@@ -1265,7 +1265,7 @@
             .refresh-status:empty { display: none; }
             .panel { padding: 0.75rem; }
             .panel-header { margin-bottom: 0.6rem; }
-            .view-switcher { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px; }
+            .view-switcher { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; padding: 4px; }
             .view-switcher button { min-height: 40px; padding: 0.35rem 0.3rem; font-size: 0.82rem; }
             .view-switcher button:last-child:nth-child(odd) { grid-column: auto; }
             .view-count { display: none; }
@@ -1421,6 +1421,7 @@
                             <button type="button" id="view-master" class="active" role="tab" aria-selected="true" onclick="setDataset('master')">Master leads</button>
                             <button type="button" id="view-backlog" role="tab" aria-selected="false" onclick="setDataset('backlog')">VC research <span class="view-count" id="backlog-count">0</span></button>
                             <button type="button" onclick="location.href='/adv'">ADV discovery<span class="adv-arrow"> ↗</span></button>
+                            <button type="button" onclick="location.href='/research'">Today's leads<span class="adv-arrow"> ↗</span></button>
                         </div>
                         <a href="/api/leads" download="ALL_VC_LEADS.csv" id="download-link" class="btn-action" style="padding: 0.4rem 0.8rem; border-radius: 8px;">
                         📥 Download Master CSV

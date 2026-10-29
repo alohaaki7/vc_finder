@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Today's Leads</title>
+<style>
+  :root {
+    --bg: #0a0b10; --panel: #12131c; --border: rgba(255,255,255,0.08); --text: #f3f4f6;
+    --muted: #9ca3af; --neon: #00e5ff; --green: #34d399; --orange: #ffb86b; --pink: #ff4f9a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 16px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+  header a { color: var(--neon); text-decoration: none; font-size: 0.9rem; }
+  h1 { font-size: 1.3rem; }
+  .summary { color: var(--muted); font-size: 0.9rem; margin-bottom: 12px; }
+  .chips { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 12px; scrollbar-width: none; }
+  .chips button { flex: 0 0 auto; min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--border);
+    background: rgba(255,255,255,0.04); color: var(--muted); font-size: 0.88rem; cursor: pointer; }
+  .chips button.active { border-color: var(--neon); color: var(--neon); background: rgba(0,229,255,0.08); }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 14px; margin-bottom: 10px; }
+  .top { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+  .fund { font-weight: 650; font-size: 1.02rem; }
+  .meta { color: var(--muted); font-size: 0.82rem; margin-top: 3px; }
+  .badges { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 8px; }
+  .badge { font-size: 0.78rem; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); }
+  .offer-website { color: var(--pink); border-color: rgba(255,79,154,0.35); }
+  .offer-search { color: var(--orange); border-color: rgba(255,184,107,0.35); }
+  .offer-brand { color: var(--green); border-color: rgba(52,211,153,0.35); }
+  .points { margin: 6px 0 0 18px; font-size: 0.9rem; }
+  .points li { margin-bottom: 4px; }
+  details { margin-top: 8px; font-size: 0.85rem; color: var(--muted); }
+  details p { margin-top: 6px; }
+  .links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .links a { flex: 1 1 140px; text-align: center; min-height: 42px; line-height: 42px; border-radius: 10px;
+    border: 1px solid var(--border); color: var(--text); text-decoration: none; font-size: 0.88rem; }
+  .links a.primary { background: var(--neon); color: #041016; border-color: var(--neon); font-weight: 600; }
+  .empty { color: var(--muted); padding: 30px 0; text-align: center; }
+  select { background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 10px; min-height: 40px; padding: 0 10px; font-size: 16px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Today's leads</h1>
+    <a href="/">← SEC Finder</a>
+  </header>
+  <p class="summary" id="summary">Loading…</p>
+  <div class="chips" id="chips">
+    <select id="day" aria-label="Research day"></select>
+    <button data-offer="all" class="active">All</button>
+    <button data-offer="Website">Website</button>
+    <button data-offer="Search">Search & AI</button>
+    <button data-offer="Branding">Branding</button>
+  </div>
+  <div id="list"></div>
+</div>
+<script>
+  let rows = [], day = '', offer = 'all';
+  const esc = v => String(v ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+  const safeUrl = v => /^https?:\/\//i.test(String(v || '')) ? v : '';
+
+  function offerClass(o) {
+    if (o.startsWith('Website')) return 'offer-website';
+    if (o.startsWith('Search')) return 'offer-search';
+    return 'offer-brand';
+  }
+
+  function sentences(text) {
+    return String(text || '').split(/(?<=\.)\s+(?=[A-Z"'])/).filter(Boolean);
+  }
+
+  function render() {
+    const shown = rows.filter(r => (!day || r.researched_on === day) && (offer === 'all' || String(r.offer).startsWith(offer)));
+    const dayRows = rows.filter(r => !day || r.researched_on === day);
+    document.getElementById('summary').textContent = rows.length
+      ? `${dayRows.length} leads researched on ${day || 'all days'} · ${rows.length} in total`
+      : 'No leads researched yet. The daily job fills this page.';
+    document.getElementById('list').innerHTML = shown.length ? shown.map(r => {
+      const google = 'https://www.google.com/search?q=' + encodeURIComponent(`"${r.brand}"`);
+      const site = safeUrl(r.website), sec = safeUrl(r.sec_filing);
+      return `<article class="card">
+        <div class="top"><div>
+          <div class="fund">${esc(r.fund)}</div>
+          <div class="meta">${esc(r.location)} · filed ${esc(r.filed)}${r.raised ? ' · raised ' + esc(r.raised) : ''}</div>
+          <div class="meta">${esc(r.people || 'No person named on the filing')}</div>
+        </div></div>
+        <div class="badges">
+          <span class="badge ${offerClass(r.offer)}">Pitch: ${esc(r.offer)}</span>
+          <span class="badge">${esc(r.priority)}</span>
+          <span class="badge">Site: ${esc((r.grade || '').replaceAll('_', ' '))}</span>
+          ${r.ai_overview_knows_fund ? `<span class="badge">Google AI knows fund: ${esc(r.ai_overview_knows_fund)}</span>` : ''}
+        </div>
+        <ul class="points">${sentences(r.pitch_points).map(p => `<li>${esc(p)}</li>`).join('') || '<li>No obvious gaps found.</li>'}</ul>
+        <details><summary>Details</summary>
+          <p><b>Website:</b> ${esc(r.website || 'none found')} ${r.website_source ? '(' + esc(r.website_source) + ')' : ''}</p>
+          <p><b>Missing on site:</b> ${esc(r.missing || '—')} ${r.builder ? '· built with ' + esc(r.builder) : ''}</p>
+          <p><b>Google top results for the name:</b> ${esc(r.google_top_results || '—')}</p>
+          <p><b>Google AI Overview sources:</b> ${esc(r.ai_overview_sources || '—')}</p>
+          <p><b>What Google's AI says:</b> ${esc(r.ai_overview_summary || '—')}</p>
+        </details>
+        <div class="links">
+          ${site ? `<a class="primary" href="${esc(site)}" target="_blank" rel="noopener">Open site</a>` : ''}
+          <a class="${site ? '' : 'primary'}" href="${esc(google)}" target="_blank" rel="noopener">Google the fund</a>
+          ${sec ? `<a href="${esc(sec)}" target="_blank" rel="noopener">SEC filing</a>` : ''}
+        </div>
+      </article>`;
+    }).join('') : '<p class="empty">Nothing matches this filter.</p>';
+  }
+
+  document.querySelectorAll('#chips button').forEach(b => b.onclick = () => {
+    offer = b.dataset.offer;
+    document.querySelectorAll('#chips button').forEach(x => x.classList.toggle('active', x === b));
+    render();
+  });
+  document.getElementById('day').onchange = e => { day = e.target.value; render(); };
+
+  fetch('/api/research').then(r => r.json()).then(data => {
+    rows = data.rows || [];
+    const select = document.getElementById('day');
+    select.innerHTML = (data.days || []).map(d => `<option value="${esc(d)}">${esc(d)}</option>`).join('') + '<option value="">All days</option>';
+    day = (data.days || [])[0] || '';
+    select.value = day;
+    render();
+  }).catch(() => { document.getElementById('summary').textContent = 'Could not load research data.'; });
+</script>
+</body>
+</html>
