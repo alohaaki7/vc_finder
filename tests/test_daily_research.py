@@ -60,10 +60,32 @@ class ResearchTests(unittest.TestCase):
     def test_site_cited_by_ai_is_used_when_google_misses_it(self):
         treg = FakeTreg(google=[], overview={
             "answer": "Cork & Vines is a hospitality fund.", "citations": [{"url": "https://corknvines.com/about"}]})
-        with patch.object(daily_research.grade_websites, "grade_site", return_value={"grade": "adequate"}):
+        with patch.object(daily_research.grade_websites, "grade_site", return_value={"grade": "adequate"}), \
+                patch.object(daily_research, "site_confirms", return_value=True):
             row = daily_research.research("Raised $1-20M", lead("Cork & Vines Fund I, LP"), treg)
         self.assertEqual(row["website"], "https://corknvines.com/")
         self.assertEqual(row["website_source"], "Google AI Overview source")
+
+    def test_site_must_name_the_fund_or_a_partner(self):
+        class Page:
+            def __init__(self, text): self.text = text
+        cases = [
+            ("<title>FIDEXUS CAPITAL</title> We back founders.", "Fidexus Capital Equity Growth", [], True),
+            ("<title>Syntropy Capital Advisors</title> Trusted advice.", "Syntropy Ventures", ["Adam Nanjee"], False),
+            ("Olympus medical endoscopes", "776 Olympus", ["Alexis Ohanian"], False),
+            ("Our team: Matthew Giampetroni", "Traverse Ventures", ["John Giampetroni"], True),
+        ]
+        for html, brand, people, expected in cases:
+            with patch.object(daily_research.requests, "get", return_value=Page(html)):
+                self.assertEqual(daily_research.site_confirms("https://x.com", brand, people), expected, brand)
+
+    def test_unconfirmed_site_is_left_for_a_human(self):
+        treg = FakeTreg(google=[{"url": "https://chicagoventures.com/"}], overview={})
+        with patch.object(daily_research, "site_confirms", return_value=False):
+            row = daily_research.research("Raised $1-20M", lead("Chicago First Fund I LLC"), treg)
+        self.assertEqual(row["website"], "")
+        self.assertEqual(row["offer"], "Check by hand")
+        self.assertIn("chicagoventures.com", row["pitch_points"])
 
     def test_budget_stops_calls(self):
         treg = daily_research.Treg("token", 0.0)
