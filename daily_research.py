@@ -44,7 +44,17 @@ GENERIC_WORDS = {
     "capital", "ventures", "venture", "partners", "management", "fund", "funds", "group", "holdings", "lp",
     "llc", "the", "and", "vc", "global", "investments", "investment", "advisors", "one", "i", "ii", "1", "2",
 }
-VEHICLE_HINT = re.compile(r"continuation|access|leasing|\bspv\b|series|co-?invest", re.IGNORECASE)
+# Names that are a deal vehicle, a side entity or not a venture fund, so not worth a research slot
+VEHICLE_HINT = re.compile(
+    r"continuation|access|leasing|\bspv\b|series|co-?invest"
+    # "Purdue Alumni Fund I - Roll Tack", "Mentors Fund II, LP - F2": one deal or one share class
+    r"|\s-\s(?!.*\bfund\b)|-\s?(ii|2)\b|\bproject\s+\w+|\bdirect\b|\bqp\b|\binvestors\b"
+    # Vintage-year vehicles, GP entities, insiders' funds, trusts and India GIFT City feeders
+    r"|\b20\d{2}\b|\bgp\b|founders['’]\s+fund|\btrust\b|\bgift\b"
+    r"|public\s+markets|financing|collectibles|infrastructure|real\s+estate|\bcredit\b|\blending\b",
+    re.IGNORECASE,
+)
+FIRM_WORDS = {"ventures", "venture", "capital", "partners", "vc"}
 LEDGER_FIELDS = [
     "researched_on", "priority", "fund", "brand", "raised", "first_sale", "filed", "location", "people",
     "website", "website_source", "grade", "missing", "builder", "site_flags",
@@ -121,6 +131,18 @@ def brand_of(fund_name: str) -> str:
     return name.strip(" ,-") or fund_name
 
 
+def manager_key(fund_name: str) -> str:
+    """The manager behind a fund name, so its vehicles count once.
+
+    'Voltage Ventures Opportunity I LP' and 'Voltage Ventures Fund I LP' -> 'voltage ventures'.
+    """
+    tokens = [t for t in re.findall(r"[a-z0-9]+", brand_of(fund_name).lower()) if len(t) > 1]
+    for index, token in enumerate(tokens[1:], 1):
+        if token in FIRM_WORDS:
+            return " ".join(tokens[: index + 1])
+    return " ".join(tokens[:2])
+
+
 def brand_words(brand: str) -> list[str]:
     return [w for w in re.findall(r"[a-z0-9]+", brand.lower()) if w not in GENERIC_WORDS and len(w) >= 3]
 
@@ -171,8 +193,9 @@ def lead_key(lead: dict) -> str:
     return lead.get("sec_number") or lead.get("crd") or lead.get("name", "")
 
 
-def build_queue(leads: list[dict], done: set[str], today: datetime) -> list[tuple[str, dict]]:
-    """Leads not yet researched, best first."""
+def build_queue(leads: list[dict], done: set[str], today: datetime,
+                done_managers: set[str] | None = None) -> list[tuple[str, dict]]:
+    """Leads not yet researched, best first, one per manager."""
     cutoff = (today - timedelta(days=120)).strftime("%Y-%m-%d")
     fresh = [
         lead for lead in leads
@@ -189,8 +212,17 @@ def build_queue(leads: list[dict], done: set[str], today: datetime) -> list[tupl
                     key=lambda lead: lead.get("filing_date", ""), reverse=True)
     fund2 = sorted((lead for lead in fresh if lead.get("fund2_raise")),
                    key=lambda lead: (parse_money(lead.get("amount_sold")) > 0, lead.get("filing_date", "")), reverse=True)
-    return ([("Raised $1-20M", lead) for lead in raised] + [("New first fund", lead) for lead in others]
-            + [("Raising Fund II", lead) for lead in fund2])
+    queue = ([("Raised $1-20M", lead) for lead in raised] + [("New first fund", lead) for lead in others]
+             + [("Raising Fund II", lead) for lead in fund2])
+    seen = set(done_managers or ())
+    unique = []
+    for priority, lead in queue:
+        key = manager_key(lead.get("name", ""))
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append((priority, lead))
+    return unique
 
 
 def research(priority: str, lead: dict, treg: Treg) -> dict:
@@ -303,7 +335,8 @@ def main() -> int:
 
     ledger = load_ledger(args.ledger)
     done = {row["lead_key"] for row in ledger}
-    queue = build_queue(server.load_display_leads(), done, datetime.now())
+    queue = build_queue(server.load_display_leads(), done, datetime.now(),
+                        {manager_key(row["fund"]) for row in ledger})
     treg = Treg(os.environ.get("TREG_TOKEN", "").strip(), args.budget)
     if not treg.token:
         print("TREG_TOKEN is not set: Google and AI checks are skipped.")
