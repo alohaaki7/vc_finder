@@ -6,13 +6,16 @@ funds, then managers raising Fund II), not already in RESEARCH_LEDGER.csv:
 
 1. Google the brand (treg): find the fund's own site and what an LP sees when
    searching the name (own site rank, databases in the top results).
-2. Ask Google's AI Overview "What is <brand>?" (treg): does it know the fund,
-   and does it cite the fund's own site or third-party databases?
-3. Keywords the site ranks for in Google (treg).
-4. Grade the site with grade_websites.py (no treg cost).
+2. Keywords the site ranks for in Google (treg).
+3. Read the site (no treg cost) and sort the lead into one of three groups:
+   "No site", "Broken or empty" or "Has a site". The tool cannot judge design,
+   so a site that exists is left for a person to look at.
+4. Optional, with AI_OVERVIEW_CHECK=true: ask Google's AI Overview "What is
+   <brand>?" (treg): does it know the fund, and which sources does it cite?
 
-Spending is capped per call and per run (TREG_DAILY_BUDGET_USD). Without a
-TREG_TOKEN the treg steps are skipped and only known websites are graded.
+Spending is capped per call and per run (TREG_DAILY_BUDGET_USD). When the search
+cannot run (no TREG_TOKEN, empty balance, rejected token) nothing is recorded,
+because "No site" is only true after a search.
 """
 
 from __future__ import annotations
@@ -55,9 +58,12 @@ VEHICLE_HINT = re.compile(
     re.IGNORECASE,
 )
 FIRM_WORDS = {"ventures", "venture", "capital", "partners", "vc"}
+# A site with fewer words than this across its pages says nothing about the fund
+EMPTY_SITE_WORDS = 100
+NO_SITE, EMPTY_SITE, HAS_SITE, UNCONFIRMED_SITE = "No site", "Broken or empty", "Has a site", "Check by hand"
 LEDGER_FIELDS = [
     "researched_on", "priority", "fund", "brand", "raised", "first_sale", "filed", "location", "people",
-    "website", "website_source", "grade", "missing", "builder", "site_flags",
+    "website", "website_source", "site_status", "grade", "missing", "builder", "site_flags",
     "google_own_site_rank", "google_top_results", "google_databases_top5",
     "ai_overview_knows_fund", "ai_overview_cites_own_site", "ai_overview_sources", "ai_overview_summary",
     "ranked_keywords", "offer", "pitch_points", "sec_filing", "lead_key", "treg_cost_usd",
@@ -98,8 +104,11 @@ class Treg:
         except ValueError:
             return None
 
-    def google(self, query: str) -> list[dict]:
-        data = self.call("treg.google.serp.organic", json_body={"q": query, "limit": 10}) or {}
+    def google(self, query: str) -> list[dict] | None:
+        """Google results, or None when the search itself did not run."""
+        data = self.call("treg.google.serp.organic", json_body={"q": query, "limit": 10})
+        if data is None:
+            return None
         return (data.get("output") or {}).get("results") or []
 
     def ai_overview(self, prompt: str) -> dict:
@@ -225,25 +234,41 @@ def build_queue(leads: list[dict], done: set[str], today: datetime,
     return unique
 
 
-def research(priority: str, lead: dict, treg: Treg) -> dict:
+def site_status(website: str, grade: dict) -> str:
+    """Sort a site by facts only: missing, broken or nearly empty, or there to be looked at."""
+    kind = grade.get("grade", "")
+    if not website or kind == "social_only":
+        return NO_SITE
+    if kind in {"broken", "placeholder"}:
+        return EMPTY_SITE
+    words = grade.get("words")
+    if kind in {"thin_or_incomplete", "adequate"} and words not in ("", None) and int(words) < EMPTY_SITE_WORDS:
+        return EMPTY_SITE
+    return HAS_SITE
+
+
+def research(priority: str, lead: dict, treg: Treg, ai_check: bool = False) -> dict | None:
+    """Research one lead, or return None when the Google search could not run."""
     spent_before = treg.spent_micro
     fund = lead.get("name") or lead.get("firm_name", "")
     brand = brand_of(fund)
     words = brand_words(brand)
     people = [p for p in str(lead.get("sec_people") or "").split("; ") if p]
 
-    results = treg.google(f'"{brand}" venture') if treg.available else []
+    results = treg.google(f'"{brand}" venture')
+    if results is None:
+        return None
     website, rank = own_site(results, words)
     source = "Google" if website else ""
     if not website and lead.get("adv_website"):
         website, source = lead["adv_website"], "SEC adviser record"
     if not website and people and treg.available:
-        website, _ = own_site(treg.google(f'"{people[0]}" "{brand}"'), words)
+        website, _ = own_site(treg.google(f'"{people[0]}" "{brand}"') or [], words)
         source = "Google (partner name)" if website else ""
     top_hosts = [host_of(r.get("url") or r.get("link")) for r in results[:5]]
     databases = sorted({h for h in top_hosts if h and is_database(h)})
 
-    overview = treg.ai_overview(f"What is {brand}, the venture capital fund?") if treg.available else {}
+    overview = treg.ai_overview(f"What is {brand}, the venture capital fund?") if ai_check and treg.available else {}
     answer = str(overview.get("answer") or "")
     citations = [host_of(c.get("url")) for c in overview.get("citations") or [] if c.get("url")]
     knows = bool(answer) and bool(words) and any(w in answer.lower() for w in words) \
@@ -268,13 +293,18 @@ def research(priority: str, lead: dict, treg: Treg) -> dict:
             "country": lead.get("country", ""), "reported_website": website,
         })
 
+    status = UNCONFIRMED_SITE if unconfirmed else site_status(website, grade)
     points = []
     if unconfirmed:
         points.append(f"Possible site {host_of(unconfirmed)} does not name the fund or its partners; check by hand.")
     elif not website:
         points.append(f'No website found for "{brand}".')
-    elif grade.get("grade") in {"broken", "placeholder", "thin_or_incomplete", "social_only"}:
-        points.append(f"Website is {grade['grade'].replace('_', ' ')}: {grade.get('evidence', '')}")
+    elif grade.get("grade") == "social_only":
+        points.append(f"The only site found is a {host_of(website)} profile.")
+    elif grade.get("grade") in {"broken", "placeholder"}:
+        points.append(f"Website is {grade['grade']}: {grade.get('evidence', '')}")
+    elif status == EMPTY_SITE:
+        points.append(f"Website is nearly empty: {grade['words']} words on {grade.get('pages_checked', 1)} page(s).")
     if results and not rank:
         points.append(f'Googling "{brand}" does not show the fund\'s own site in the top 10.')
     elif rank > 3:
@@ -288,7 +318,7 @@ def research(priority: str, lead: dict, treg: Treg) -> dict:
 
     if unconfirmed:
         offer = "Check by hand"
-    elif not website or grade.get("grade") in {"broken", "placeholder", "thin_or_incomplete", "social_only"}:
+    elif status in {NO_SITE, EMPTY_SITE}:
         offer = "Website"
     elif databases or (overview and not cites_own) or not rank:
         offer = "Search & AI visibility + brand"
@@ -301,7 +331,7 @@ def research(priority: str, lead: dict, treg: Treg) -> dict:
         "raised": lead.get("amount_sold", ""), "first_sale": lead.get("date_of_first_sale", ""),
         "filed": lead.get("filing_date", ""),
         "location": ", ".join(x for x in [str(lead.get("city", "")).title(), lead.get("state", "")] if x),
-        "people": ", ".join(people), "website": website, "website_source": source,
+        "people": ", ".join(people), "website": website, "website_source": source, "site_status": status,
         "grade": grade.get("grade", "no_site" if not website else ""), "missing": grade.get("missing", ""),
         "builder": grade.get("builder", ""), "site_flags": grade.get("flags", ""),
         "google_own_site_rank": rank or "", "google_top_results": " | ".join(h for h in top_hosts if h),
@@ -329,6 +359,9 @@ def main() -> int:
     parser.add_argument("--ledger", default=LEDGER_FILE)
     parser.add_argument("--budget", type=float, default=float(os.environ.get("TREG_DAILY_BUDGET_USD") or 0.10),
                         help="Maximum treg spend for this run, in USD")
+    parser.add_argument("--ai-overview", action="store_true",
+                        default=os.environ.get("AI_OVERVIEW_CHECK", "").strip().lower() in {"1", "true", "yes"},
+                        help="Also ask Google's AI Overview about each fund (more than doubles the cost per lead)")
     args = parser.parse_args()
 
     import server  # prepared leads, with the same verdict rules as the dashboard
@@ -339,17 +372,22 @@ def main() -> int:
                         {manager_key(row["fund"]) for row in ledger})
     treg = Treg(os.environ.get("TREG_TOKEN", "").strip(), args.budget)
     if not treg.token:
-        print("TREG_TOKEN is not set: Google and AI checks are skipped.")
+        print("TREG_TOKEN is not set: nothing researched.")
+        return 0
     print(f"{len(queue)} leads waiting; researching up to {args.limit} (treg budget ${args.budget:.2f}).")
 
     new_rows = []
     for priority, lead in queue[: args.limit]:
-        if treg.token and not treg.available:
+        if not treg.available:
             print("Stopping: treg budget reached or balance empty.")
             break
-        row = research(priority, lead, treg)
+        row = research(priority, lead, treg, args.ai_overview)
+        if row is None:
+            print("Stopping: the Google search did not run (treg balance empty or token rejected). "
+                  f"{lead.get('name', '')} stays in the queue.")
+            break
         new_rows.append(row)
-        print(f"  {row['fund'][:45]:45} | {row['offer']:28} | ${row['treg_cost_usd']}")
+        print(f"  {row['fund'][:45]:45} | {row['site_status']:15} | ${row['treg_cost_usd']}")
         time.sleep(0.5)
 
     with open(args.ledger, "w", encoding="utf-8", newline="") as f:

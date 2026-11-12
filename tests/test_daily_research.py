@@ -77,8 +77,9 @@ class ResearchTests(unittest.TestCase):
             google=[{"url": "https://pitchbook.com/x"}, {"url": "https://crunchbase.com/y"}],
             overview={"answer": "Atomus VC is a venture firm.", "citations": [{"url": "https://pitchbook.com/x"}]},
         )
-        row = daily_research.research("Raised $1-20M", lead("Atomus Fund I, L.P."), treg)
+        row = daily_research.research("Raised $1-20M", lead("Atomus Fund I, L.P."), treg, ai_check=True)
         self.assertEqual(row["offer"], "Website")
+        self.assertEqual(row["site_status"], "No site")
         self.assertIn("No website found", row["pitch_points"])
         self.assertIn("pitchbook.com", row["pitch_points"])
 
@@ -87,9 +88,54 @@ class ResearchTests(unittest.TestCase):
             "answer": "Cork & Vines is a hospitality fund.", "citations": [{"url": "https://corknvines.com/about"}]})
         with patch.object(daily_research.grade_websites, "grade_site", return_value={"grade": "adequate"}), \
                 patch.object(daily_research, "site_confirms", return_value=True):
-            row = daily_research.research("Raised $1-20M", lead("Cork & Vines Fund I, LP"), treg)
+            row = daily_research.research("Raised $1-20M", lead("Cork & Vines Fund I, LP"), treg, ai_check=True)
         self.assertEqual(row["website"], "https://corknvines.com/")
         self.assertEqual(row["website_source"], "Google AI Overview source")
+        self.assertEqual(row["site_status"], "Has a site")
+
+    def test_ai_overview_is_off_unless_asked_for(self):
+        treg = FakeTreg(google=[], overview={"answer": "Atomus is a fund.", "citations": []})
+        row = daily_research.research("Raised $1-20M", lead("Atomus Fund I, L.P."), treg)
+        self.assertEqual(row["ai_overview_knows_fund"], "")
+        self.assertNotIn("AI", row["pitch_points"])
+
+    def test_sites_are_sorted_by_facts_not_by_wording(self):
+        cases = [
+            ("", {}, "No site"),
+            ("https://linkedin.com/company/x", {"grade": "social_only"}, "No site"),
+            ("https://x.vc", {"grade": "broken"}, "Broken or empty"),
+            ("https://x.vc", {"grade": "placeholder"}, "Broken or empty"),
+            ("https://x.vc", {"grade": "thin_or_incomplete", "words": 6}, "Broken or empty"),
+            # Missing sections found by keyword are not a verdict: a person has to look
+            ("https://x.vc", {"grade": "thin_or_incomplete", "words": 1280}, "Has a site"),
+            ("https://x.vc", {"grade": "adequate", "words": 900}, "Has a site"),
+            ("https://x.vc", {"grade": "blocked", "words": ""}, "Has a site"),
+        ]
+        for website, grade, expected in cases:
+            self.assertEqual(daily_research.site_status(website, grade), expected, grade)
+
+    def test_nearly_empty_site_is_a_website_pitch_with_the_word_count(self):
+        treg = FakeTreg(google=[{"url": "https://nexeption.com/"}])
+        grade = {"grade": "thin_or_incomplete", "words": 6, "pages_checked": 1, "missing": "team; focus"}
+        with patch.object(daily_research.grade_websites, "grade_site", return_value=grade), \
+                patch.object(daily_research, "site_confirms", return_value=True):
+            row = daily_research.research("Raised $1-20M", lead("NeXeption Capital Fund I, L.P."), treg)
+        self.assertEqual((row["site_status"], row["offer"]), ("Broken or empty", "Website"))
+        self.assertIn("nearly empty: 6 words on 1 page(s)", row["pitch_points"])
+        self.assertNotIn("Missing", row["pitch_points"])
+
+    def test_nothing_is_recorded_when_the_search_cannot_run(self):
+        class DeadTreg(FakeTreg):
+            def google(self, query):
+                return None
+        self.assertIsNone(daily_research.research("Raised $1-20M", lead("Atomus Fund I, L.P."), DeadTreg()))
+
+    def test_rejected_call_is_not_an_empty_result(self):
+        class Response:
+            status_code, headers = 401, {}
+        treg = daily_research.Treg("token", 1.0)
+        with patch.object(daily_research.requests, "request", return_value=Response()):
+            self.assertIsNone(treg.google("anything"))
 
     def test_site_must_name_the_fund_or_a_partner(self):
         class Page:
@@ -110,6 +156,7 @@ class ResearchTests(unittest.TestCase):
             row = daily_research.research("Raised $1-20M", lead("Chicago First Fund I LLC"), treg)
         self.assertEqual(row["website"], "")
         self.assertEqual(row["offer"], "Check by hand")
+        self.assertEqual(row["site_status"], "Check by hand")
         self.assertIn("chicagoventures.com", row["pitch_points"])
 
     def test_budget_stops_calls(self):

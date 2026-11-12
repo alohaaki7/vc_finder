@@ -13,6 +13,11 @@ on:
         required: false
         default: "0.10"
         type: string
+      ai_check:
+        description: Also ask Google's AI Overview about each fund (more than doubles the cost)
+        required: false
+        default: false
+        type: boolean
   schedule:
     # After the SEC refresh (12:17 UTC) has committed the day's filings
     - cron: "47 13 * * *"
@@ -47,6 +52,8 @@ jobs:
           TREG_TOKEN: ${{ secrets.TREG_TOKEN }}
           TREG_DAILY_BUDGET_USD: ${{ inputs.budget || '0.10' }}
           VC_FINDER_SEC_USER_AGENT: ${{ secrets.VC_FINDER_SEC_USER_AGENT }}
+          # Off for scheduled runs; change 'false' to 'true' to switch it on every day
+          AI_OVERVIEW_CHECK: ${{ inputs.ai_check || 'false' }}
           LIMIT: ${{ inputs.limit || '20' }}
         run: python daily_research.py --limit "$LIMIT"
 

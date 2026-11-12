@@ -106,7 +106,7 @@ SOCIAL_LINK_HOSTS = SOCIAL_HOSTS + ("youtube.com", "medium.com", "substack.com",
 
 OUTPUT_FIELDS = [
     "crd_number", "firm", "registration_date", "country", "website_reported", "final_url",
-    "http_status", "grade", "missing", "builder", "flags", "evidence", "pages_checked", "checked_at",
+    "http_status", "grade", "missing", "builder", "flags", "evidence", "pages_checked", "words", "checked_at",
 ]
 
 
@@ -179,7 +179,7 @@ def grade_site(row: dict) -> dict:
         "country": row.get("country", ""),
         "website_reported": reported,
         "final_url": "", "http_status": "", "grade": "", "missing": "", "builder": "",
-        "flags": "", "evidence": "", "pages_checked": 0,
+        "flags": "", "evidence": "", "pages_checked": 0, "words": "",
         "checked_at": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
     }
     url = normalize_url(reported)
@@ -309,7 +309,8 @@ def grade_site(row: dict) -> dict:
     if title:
         evidence += f' Title: "{title}".'
 
-    result.update(grade=grade, missing="; ".join(missing), builder=builder, flags="; ".join(flags), evidence=evidence)
+    result.update(grade=grade, missing="; ".join(missing), builder=builder, flags="; ".join(flags),
+                  evidence=evidence, words=total_words)
     return result
 
 
