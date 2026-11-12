@@ -41,6 +41,31 @@ class QueueTests(unittest.TestCase):
             "Big Raise Fund I, LP", "Raised Fund I, LP", "Small Fund I, LP", "Second Fund II, LP",
         ])
 
+    def test_deal_vehicles_and_non_venture_funds_are_skipped(self):
+        skipped = [
+            "PURDUE ALUMNI FUND I - ROLL TACK LLC", "Mentors Fund II, LP - F2", "MW VC Prometheus-II, LLC",
+            "Beillion Capital LLC Project Forma", "FH Venture Partners 2026, LLC", "LF Capital Fund GP, L.P.",
+            "Benchmark Partners Founders' Fund 2, L.P.", "Everstone Capital Partners Trust",
+            "Kedaara Capital Public Markets Fund I", "Flatiron PO Financing Fund I LLC",
+            "RM Gov Pointe Investors LLC",
+        ]
+        kept = ["FinanceWise Ventures - Fast Forward Fund I, L.P.", "Black Opal Ventures Fund II - Primary Fund, L.P.",
+                "Sway Growth Opportunity Fund I, L.P."]
+        queue = daily_research.build_queue([lead(name) for name in skipped + kept], set(), datetime(2026, 10, 29))
+        self.assertEqual(sorted(item[1]["name"] for item in queue), sorted(kept))
+
+    def test_one_lead_per_manager(self):
+        leads = [
+            lead("Voltage Ventures Opportunity I LP", sold="$9M"),
+            lead("Maple Syrup Ventures, Fund MIV, LLC", sold="$4M"),
+            lead("Maple Syrup Ventures, Fund MV, LLC", sold="$0"),
+            lead("Valhalla Ventures Fund I LP", sold="$2M"),
+        ]
+        queue = daily_research.build_queue(
+            leads, set(), datetime(2026, 10, 29), {daily_research.manager_key("Voltage Ventures Fund I LP")})
+        self.assertEqual([item[1]["name"] for item in queue],
+                         ["Maple Syrup Ventures, Fund MIV, LLC", "Valhalla Ventures Fund I LP"])
+
     def test_brand_drops_legal_suffix_and_fund_number(self):
         self.assertEqual(daily_research.brand_of("Syntropy Ventures Fund I, LP"), "Syntropy Ventures")
         self.assertEqual(daily_research.brand_of("NeXeption Capital Fund I, L.P."), "NeXeption Capital")
