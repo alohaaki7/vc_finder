@@ -74,9 +74,10 @@
     <summary>Tools: Grok prompt, add a fund you found</summary>
     <div class="row">
       <button id="copy-grok">Copy the leads below for Grok</button>
+      <button id="copy-task">Copy the weekly Grok task prompt</button>
       <a href="https://github.com/alohaaki7/vc_finder/actions/workflows/add-leads.yml" target="_blank" rel="noopener">Add a fund you found</a>
     </div>
-    <p id="tool-note">"Copy for Grok" copies a prompt with the first 15 leads shown below. Paste it into Grok to get each partner's X account and a recent post to mention.</p>
+    <p id="tool-note">"Copy the leads" gives Grok the first 15 leads shown below, to find each partner's X account and a recent post to mention. "Weekly Grok task" is the prompt for a scheduled Grok task that finds new funds on X; paste its answer into "Add a fund you found" with the source set to Grok.</p>
   </details>
   <div class="sticky">
     <div class="chips" id="work-chips">
@@ -249,6 +250,25 @@
       note.textContent = `Copied a prompt with ${leads.length} leads. Paste it into Grok.`;
     } catch (err) {
       note.textContent = 'Copying is blocked in this browser. Select and copy this: ' + prompt;
+    }
+  };
+
+  // The answer is one line, because the "Add leads" form on GitHub takes a single line
+  const TASK_PROMPT = 'Search X for posts from the last 7 days in which a venture capital firm or one of its partners announces a new fund: '
+    + 'a first or second fund (Fund I or Fund II), a first close or a final close, or a solo GP launching a fund.\n\n'
+    + 'Keep only funds of under $150M whose firm was founded in the last three years. Leave out established firms, Fund III or later, '
+    + 'crypto token funds, accelerators, and posts by news outlets or roundup accounts.\n\n'
+    + 'Only list a fund whose announcement post you actually found. Never guess a name or a link.\n\n'
+    + 'Answer with a single line and nothing else. Put each fund in this form and separate funds with " ;; ":\n'
+    + 'Fund name | GP full names separated by commas | link to the announcement post on X | fund size and stage in a few words\n\n'
+    + 'If you find none, answer NONE.';
+  document.getElementById('copy-task').onclick = async () => {
+    const note = document.getElementById('tool-note');
+    try {
+      await navigator.clipboard.writeText(TASK_PROMPT);
+      note.textContent = 'Copied. In Grok, create a scheduled task that runs weekly and paste this as its prompt.';
+    } catch (err) {
+      note.textContent = 'Copying is blocked in this browser. Select and copy this: ' + TASK_PROMPT;
     }
   };
 

@@ -99,6 +99,16 @@ class QueueTests(unittest.TestCase):
         ])
         self.assertEqual(queue[0][1]["sec_people"], "Ada Lovelace; Alan Turing")
 
+    def test_grok_find_by_an_established_manager_is_left_out_but_a_hand_added_one_stays(self):
+        leads = [lead("Old Hand Capital Fund IV, LP", code="existing_manager")]
+        rows = [{"fund": "Old Hand Capital Fund V", "source": "Grok", "added_on": "2026-10-28"},
+                {"fund": "Old Hand Capital Growth", "source": "Added by you", "added_on": "2026-10-28"},
+                {"fund": "Brand New Ventures", "source": "Grok", "added_on": "2026-10-28"}]
+        queue = daily_research.build_queue(leads, set(), datetime(2026, 10, 29), set(), [],
+                                           daily_research.inbox_leads(rows))
+        self.assertEqual([(priority, item["name"]) for priority, item in queue],
+                         [("Added by you", "Old Hand Capital Growth"), ("Grok", "Brand New Ventures")])
+
     def test_adviser_names_become_firm_names(self):
         cases = {
             "FIRST RAYS VENTURE PARTNERS MANAGEMENT COMPANY": "First Rays Venture Partners",
