@@ -19,7 +19,7 @@ on:
         default: false
         type: boolean
   schedule:
-    # After the SEC refresh (12:17 UTC) has committed the day's filings
+    # After the SEC (12:17 UTC) and adviser (11:43 UTC) refreshes have committed the day's data
     - cron: "47 13 * * *"
 
 permissions:

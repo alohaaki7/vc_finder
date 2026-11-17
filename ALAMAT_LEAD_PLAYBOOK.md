@@ -128,3 +128,26 @@ Before any outreach, re-check the exact profile, current role, relationship stat
 The unattended research job may review no more than five survivors per day. Code first removes hard rejects and candidates already present in the review ledger. Research agents then verify the public firm, decision-maker, exact LinkedIn profile, website, company presence, and offer route. A separate validator rejects incomplete `good_lead` verdicts and any result that records a save, follow, connection, message, email, or other external action.
 
 The daily report must distinguish `good_lead`, `needs_review`, and `reject`. Only `good_lead` means a real verified prospect; raw filings and unverified candidates must never be counted as leads.
+
+## Lead supply, measured 17 November 2026
+
+The limit on quality leads is how many new VC firms exist, not how many the tool can find. Counts are from the repo's own data on this date.
+
+| Source | What it is | Volume | Quality |
+|---|---|---|---|
+| SEC Form D, new first funds | A fund with no earlier filing by the same manager, deal vehicles removed | 89 in 90 days, about 30 a month (27 raised $1–20M, 49 not raised yet) | Highest when money is raised; names the partners; no website on the filing |
+| SEC adviser registrations (Form ADV, venture capital exemption) | The firm itself registering with the SEC | 64 in 90 days, about 20 a month; only 16 of them also appear in Form D | High: the firm declares it is VC, and reports its own website or none |
+| Form D, Fund II raises | A manager's second fund | about 24 a month | Medium: has budget and a reason to rebrand, but is no longer unknown |
+| Young advisers with no real site | Venture-exempt advisers registered since 2023 whose registration lists no website or only a social profile | about 300 in total, a one-time backlog | Medium: the gap is a fact on the record, but may be out of date until Googled |
+| X, through Grok | Fund announcements before or without a US filing | Not measured yet | Unknown; needs one paid test run |
+| LinkedIn through Google | Company pages and posts | Tested 29 October 2026 | Poor: mostly large funds and articles; not used |
+
+About 45 genuinely new US VC firms appear in public filings each month once the two SEC sources are merged. Reaching 100 prospects a month therefore needs Fund II raises and the young-adviser backlog as well, not a wider net on new firms.
+
+How the pieces connect:
+
+- `daily_research.py` builds one queue from all sources, one lead per manager, and records each lead in `RESEARCH_LEDGER.csv` with a site group, contacts found on the site, and the phone on the SEC record. The page is `/research`.
+- Adviser leads need no Google search, because the registration says what the website is. Form D leads wait for a search (treg).
+- Funds found by hand, in Sales Navigator or by Grok go into `MANUAL_LEADS.csv` through the "Add leads" workflow or `lead_inbox.py`, and go to the front of the queue.
+- `x_signals.py` asks Grok to search X and adds what it finds to the same inbox. It needs an `XAI_API_KEY` secret and has not been run against the live API.
+- Which leads were contacted or skipped is saved in the browser on `/research`, per device.

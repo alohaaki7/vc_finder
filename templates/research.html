@@ -2,27 +2,39 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Today's Leads</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Leads to work</title>
 <style>
   :root {
     --bg: #0a0b10; --panel: #12131c; --border: rgba(255,255,255,0.08); --text: #f3f4f6;
     --muted: #9ca3af; --neon: #00e5ff; --green: #34d399; --orange: #ffb86b; --pink: #ff4f9a;
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: var(--bg); color: var(--text); font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif; }
-  .wrap { max-width: 980px; margin: 0 auto; padding: 16px; }
-  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
-  header a { color: var(--neon); text-decoration: none; font-size: 0.9rem; }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { background: var(--bg); color: var(--text); font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
+    -webkit-text-size-adjust: 100%; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 14px 16px calc(28px + env(safe-area-inset-bottom)); }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
   h1 { font-size: 1.3rem; }
-  .summary { color: var(--muted); font-size: 0.9rem; margin-bottom: 12px; }
-  .chips { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 12px; scrollbar-width: none; }
-  .chips button { flex: 0 0 auto; min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--border);
-    background: rgba(255,255,255,0.04); color: var(--muted); font-size: 0.88rem; cursor: pointer; }
+  nav { display: flex; gap: 6px; }
+  nav a { color: var(--neon); text-decoration: none; font-size: 0.85rem; min-height: 40px; display: flex; align-items: center;
+    padding: 0 10px; border: 1px solid var(--border); border-radius: 10px; }
+  .summary { color: var(--muted); font-size: 0.88rem; margin-bottom: 10px; }
+  .notice { border: 1px solid rgba(255,184,107,0.35); color: var(--orange); border-radius: 10px; padding: 10px 12px;
+    font-size: 0.86rem; margin-bottom: 10px; }
+  .sticky { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 6px 0 8px; margin: 0 -16px; padding-left: 16px; padding-right: 16px; }
+  .chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+  .chips::-webkit-scrollbar { display: none; }
+  .chips + .chips { margin-top: 6px; }
+  .chips button { flex: 0 0 auto; min-height: 40px; padding: 0 13px; border-radius: 999px; border: 1px solid var(--border);
+    background: rgba(255,255,255,0.04); color: var(--muted); font-size: 0.86rem; cursor: pointer; }
   .chips button.active { border-color: var(--neon); color: var(--neon); background: rgba(0,229,255,0.08); }
+  .chips button b { font-weight: 600; color: inherit; opacity: 0.75; margin-left: 4px; }
+  .selects { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0 12px; }
+  select { width: 100%; min-width: 0; background: var(--panel); color: var(--text); border: 1px solid var(--border);
+    border-radius: 10px; min-height: 42px; padding: 0 10px; font-size: 16px; }
   .card { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 14px; margin-bottom: 10px; }
-  .top { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
-  .fund { font-weight: 650; font-size: 1.02rem; }
+  .card.handled { opacity: 0.62; }
+  .fund { font-weight: 650; font-size: 1.04rem; overflow-wrap: anywhere; }
   .meta { color: var(--muted); font-size: 0.82rem; margin-top: 3px; }
   .badges { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 8px; }
   .badge { font-size: 0.78rem; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); }
@@ -30,101 +42,230 @@
   .site-empty { color: var(--orange); border-color: rgba(255,184,107,0.35); }
   .site-there { color: var(--green); border-color: rgba(52,211,153,0.35); }
   .points { margin: 6px 0 0 18px; font-size: 0.9rem; }
-  .points li { margin-bottom: 4px; }
+  .points li { margin-bottom: 4px; overflow-wrap: anywhere; }
   details { margin-top: 8px; font-size: 0.85rem; color: var(--muted); }
-  details p { margin-top: 6px; }
-  .links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-  .links a { flex: 1 1 140px; text-align: center; min-height: 42px; line-height: 42px; border-radius: 10px;
-    border: 1px solid var(--border); color: var(--text); text-decoration: none; font-size: 0.88rem; }
-  .links a.primary { background: var(--neon); color: #041016; border-color: var(--neon); font-weight: 600; }
+  details summary { min-height: 36px; display: flex; align-items: center; cursor: pointer; }
+  details p { margin-top: 6px; overflow-wrap: anywhere; }
+  details a { color: var(--neon); display: inline-block; padding: 6px 0; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .row a, .row button { flex: 1 1 96px; text-align: center; min-height: 44px; display: flex; align-items: center; justify-content: center;
+    border-radius: 10px; border: 1px solid var(--border); color: var(--text); background: transparent; text-decoration: none;
+    font-size: 0.88rem; padding: 0 8px; cursor: pointer; font-family: inherit; }
+  .row a.primary { background: var(--neon); color: #041016; border-color: var(--neon); font-weight: 600; }
+  .row.contact a { border-color: rgba(52,211,153,0.35); color: var(--green); }
+  .row.mark button.on { border-color: var(--neon); color: var(--neon); background: rgba(0,229,255,0.08); }
+  .tools { margin: 0 0 10px; }
+  .tools .row { margin-top: 6px; }
+  .tools p { margin-top: 8px; }
   .empty { color: var(--muted); padding: 30px 0; text-align: center; }
-  select { background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 10px; min-height: 40px; padding: 0 10px; font-size: 16px; }
+  #more { width: 100%; min-height: 48px; border-radius: 12px; border: 1px solid var(--border); background: transparent;
+    color: var(--text); font-size: 0.92rem; margin-top: 4px; cursor: pointer; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <h1>Today's leads</h1>
-    <a href="/">← SEC Finder</a>
+    <h1>Leads to work</h1>
+    <nav><a href="/">SEC list</a><a href="/adv">Advisers</a></nav>
   </header>
   <p class="summary" id="summary">Loading…</p>
-  <div class="chips" id="chips">
+  <p class="notice" id="notice" hidden></p>
+  <details class="tools">
+    <summary>Tools: Grok prompt, add a fund you found</summary>
+    <div class="row">
+      <button id="copy-grok">Copy the leads below for Grok</button>
+      <a href="https://github.com/alohaaki7/vc_finder/actions/workflows/add-leads.yml" target="_blank" rel="noopener">Add a fund you found</a>
+    </div>
+    <p id="tool-note">"Copy for Grok" copies a prompt with the first 15 leads shown below. Paste it into Grok to get each partner's X account and a recent post to mention.</p>
+  </details>
+  <div class="sticky">
+    <div class="chips" id="work-chips">
+      <button data-work="todo" class="active">To do<b id="n-todo"></b></button>
+      <button data-work="contacted">Contacted<b id="n-contacted"></b></button>
+      <button data-work="skipped">Skipped<b id="n-skipped"></b></button>
+      <button data-work="all">All</button>
+    </div>
+    <div class="chips" id="site-chips">
+      <button data-status="all" class="active">Any site</button>
+      <button data-status="No site">No site</button>
+      <button data-status="Broken or empty">Broken or empty</button>
+      <button data-status="Has a site">Has a site</button>
+      <button data-status="Check by hand">Check by hand</button>
+    </div>
+  </div>
+  <div class="selects">
+    <select id="source" aria-label="Where the lead comes from">
+      <option value="">All sources</option>
+      <option value="SEC Form D">New funds (Form D)</option>
+      <option value="SEC adviser registration">New firms (adviser registration)</option>
+      <option value="other">Added by you or found on X</option>
+    </select>
     <select id="day" aria-label="Research day"></select>
-    <button data-status="all" class="active">All</button>
-    <button data-status="No site">No site</button>
-    <button data-status="Broken or empty">Broken or empty</button>
-    <button data-status="Has a site">Has a site</button>
-    <button data-status="Check by hand">Check by hand</button>
   </div>
   <div id="list"></div>
+  <button id="more" hidden>Show more</button>
 </div>
 <script>
-  let rows = [], day = '', status = 'all';
+  const STORE = 'alamat.leadStatus.v1', PAGE = 25;
+  let rows = [], marks = {}, work = 'todo', status = 'all', source = '', day = '', shown = PAGE;
   const esc = v => String(v ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
   const safeUrl = v => /^https?:\/\//i.test(String(v || '')) ? v : '';
+  const first = v => String(v || '').split('; ').filter(Boolean)[0] || '';
+  // What was done with a lead is kept in this browser only
+  try { marks = JSON.parse(localStorage.getItem(STORE) || '{}') || {}; } catch (e) { marks = {}; }
+  const saveMarks = () => { try { localStorage.setItem(STORE, JSON.stringify(marks)); } catch (e) {} };
 
   // The tool sorts sites by facts only; a site that exists is for a person to judge
   const STATUS = {
-    'No site': ['site-none', 'No site'],
-    'Broken or empty': ['site-empty', 'Site broken or empty'],
-    'Has a site': ['site-there', 'Has a site: look yourself'],
-    'Check by hand': ['', 'Site not confirmed'],
+    'No site': ['site-none', 'No site', 0],
+    'Broken or empty': ['site-empty', 'Site broken or empty', 1],
+    'Check by hand': ['', 'Site not confirmed', 2],
+    'Has a site': ['site-there', 'Has a site: look yourself', 3],
   };
+  const established = r => /established_signal/.test(r.site_flags || '');
+  const sourceOf = r => r.source || 'SEC Form D';
+  const markOf = r => (marks[r.lead_key] || {}).s || '';
+  const isSocial = url => /(linkedin|twitter|x|facebook|instagram|medium)\.com/i.test(url || '');
 
   function sentences(text) {
     return String(text || '').split(/(?<=\.)\s+(?=[A-Z"'])/).filter(Boolean);
   }
 
-  function render() {
-    const shown = rows.filter(r => (!day || r.researched_on === day) && (status === 'all' || r.site_status === status));
-    const dayRows = rows.filter(r => !day || r.researched_on === day);
-    document.getElementById('summary').textContent = rows.length
-      ? `${dayRows.length} leads researched on ${day || 'all days'} · ${rows.length} in total`
-      : 'No leads researched yet. The daily job fills this page.';
-    document.getElementById('list').innerHTML = shown.length ? shown.map(r => {
-      const google = 'https://www.google.com/search?q=' + encodeURIComponent(`"${r.brand}"`);
-      const site = safeUrl(r.website), sec = safeUrl(r.sec_filing);
-      return `<article class="card">
-        <div class="top"><div>
-          <div class="fund">${esc(r.fund)}</div>
-          <div class="meta">${esc(r.location)} · filed ${esc(r.filed)}${r.raised ? ' · raised ' + esc(r.raised) : ''}</div>
-          <div class="meta">${esc(r.people || 'No person named on the filing')}</div>
-        </div></div>
-        <div class="badges">
-          <span class="badge ${(STATUS[r.site_status] || [''])[0]}">${esc((STATUS[r.site_status] || ['', r.site_status])[1])}</span>
-          <span class="badge">${esc(r.priority)}</span>
-          ${r.builder ? `<span class="badge">Built with ${esc(r.builder)}</span>` : ''}
-          ${r.ai_overview_knows_fund ? `<span class="badge">Google AI knows fund: ${esc(r.ai_overview_knows_fund)}</span>` : ''}
-        </div>
-        <ul class="points">${sentences(r.pitch_points).map(p => `<li>${esc(p)}</li>`).join('') || '<li>No obvious gaps found.</li>'}</ul>
-        <details><summary>Details</summary>
-          <p><b>Website:</b> ${esc(r.website || 'none found')} ${r.website_source ? '(' + esc(r.website_source) + ')' : ''}</p>
-          <p><b>Google top results for the name:</b> ${esc(r.google_top_results || '—')}</p>
-          ${r.ai_overview_knows_fund ? `<p><b>Google AI Overview sources:</b> ${esc(r.ai_overview_sources || '—')}</p>
-          <p><b>What Google's AI says:</b> ${esc(r.ai_overview_summary || '—')}</p>` : ''}
-        </details>
-        <div class="links">
-          ${site ? `<a class="primary" href="${esc(site)}" target="_blank" rel="noopener">Open site</a>` : ''}
-          <a class="${site ? '' : 'primary'}" href="${esc(google)}" target="_blank" rel="noopener">Google the fund</a>
-          ${sec ? `<a href="${esc(sec)}" target="_blank" rel="noopener">SEC filing</a>` : ''}
-        </div>
-      </article>`;
-    }).join('') : '<p class="empty">Nothing matches this filter.</p>';
+  function matching() {
+    return rows.filter(r => (!day || r.researched_on === day)
+      && (status === 'all' || r.site_status === status)
+      && (!source || (source === 'other' ? !sourceOf(r).startsWith('SEC') : sourceOf(r) === source)));
   }
 
-  document.querySelectorAll('#chips button').forEach(b => b.onclick = () => {
-    status = b.dataset.status;
-    document.querySelectorAll('#chips button').forEach(x => x.classList.toggle('active', x === b));
+  function inWork(r) {
+    const mark = markOf(r);
+    return work === 'all' || (work === 'todo' && !mark) || (work === 'contacted' && mark === 'c') || (work === 'skipped' && mark === 'x');
+  }
+
+  function card(r) {
+    const mark = marks[r.lead_key] || {};
+    const [cls, label] = STATUS[r.site_status] || ['', r.site_status || 'Not checked'];
+    const site = isSocial(r.website) ? '' : safeUrl(r.website), record = safeUrl(r.sec_filing);
+    const google = 'https://www.google.com/search?q=' + encodeURIComponent(`"${r.brand || r.fund}"`);
+    const src = sourceOf(r);
+    const when = src === 'SEC adviser registration' ? 'registered' : src === 'SEC Form D' ? 'filed' : 'added';
+    const recordLabel = src === 'SEC adviser registration' ? 'SEC record' : src === 'SEC Form D' ? 'SEC filing' : 'Source post';
+    const email = first(r.emails), linkedin = safeUrl(first(r.linkedin)), phone = String(r.phone || '').trim();
+    const points = sentences(r.pitch_points);
+    const fallback = r.site_status === 'Has a site'
+      ? 'Nothing flagged. Open the site and judge the design yourself.' : 'Nothing flagged.';
+    const meta = [r.location, r.filed ? `${when} ${r.filed}` : '', r.raised && r.raised !== '$0' ? 'raised ' + r.raised : ''].filter(Boolean);
+    return `<article class="card ${mark.s ? 'handled' : ''}">
+      <div class="fund">${esc(src === 'SEC adviser registration' ? r.brand || r.fund : r.fund)}</div>
+      <div class="meta">${esc(meta.join(' · '))}</div>
+      ${r.people ? `<div class="meta">${esc(r.people)}</div>` : ''}
+      <div class="badges">
+        <span class="badge ${cls}">${esc(label)}</span>
+        <span class="badge">${esc(r.priority)}</span>
+        ${established(r) ? '<span class="badge site-empty">Looks established</span>' : ''}
+        ${r.builder ? `<span class="badge">Built with ${esc(r.builder)}</span>` : ''}
+        ${r.searched === 'no' && !/Not checked on Google/.test(r.pitch_points || '') ? '<span class="badge">Not checked on Google</span>' : ''}
+      </div>
+      <ul class="points">${points.map(p => `<li>${esc(p)}</li>`).join('') || `<li>${fallback}</li>`}</ul>
+      ${email || phone || linkedin ? `<div class="row contact">
+        ${email ? `<a href="mailto:${esc(email)}">Email</a>` : ''}
+        ${linkedin ? `<a href="${esc(linkedin)}" target="_blank" rel="noopener">LinkedIn</a>` : ''}
+        ${phone ? `<a href="tel:${esc(phone.replace(/[^\d+]/g, ''))}">Call</a>` : ''}
+      </div>` : ''}
+      <div class="row">
+        ${site ? `<a class="primary" href="${esc(site)}" target="_blank" rel="noopener">Open site</a>` : ''}
+        <a class="${site ? '' : 'primary'}" href="${esc(google)}" target="_blank" rel="noopener">Google it</a>
+        ${record ? `<a href="${esc(record)}" target="_blank" rel="noopener">${recordLabel}</a>` : ''}
+      </div>
+      <div class="row mark">
+        <button data-key="${esc(r.lead_key)}" data-mark="c" class="${mark.s === 'c' ? 'on' : ''}">${mark.s === 'c' ? 'Contacted ' + esc(mark.d || '') + ' · undo' : 'Mark contacted'}</button>
+        <button data-key="${esc(r.lead_key)}" data-mark="x" class="${mark.s === 'x' ? 'on' : ''}">${mark.s === 'x' ? 'Skipped · undo' : 'Skip'}</button>
+      </div>
+      <details><summary>Details</summary>
+        <p><b>Source:</b> ${esc(src)}${src === 'SEC adviser registration' ? ' as ' + esc(r.fund) : ''}${r.note ? ' · ' + esc(r.note) : ''}</p>
+        <p><b>Website:</b> ${esc(r.website || 'none found')} ${r.website_source ? '(' + esc(r.website_source) + ')' : ''}</p>
+        ${r.emails ? `<p><b>Emails on the site:</b> ${esc(r.emails)}</p>` : ''}
+        ${r.linkedin ? `<p><b>LinkedIn:</b> ${String(r.linkedin).split('; ').filter(safeUrl).map(u => `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(u.replace(/^https?:\/\/(www\.)?linkedin\.com/i, ''))}</a>`).join(' · ')}</p>` : ''}
+        ${phone ? `<p><b>Phone on the SEC record:</b> ${esc(phone)}</p>` : ''}
+        ${r.google_top_results ? `<p><b>Google top results for the name:</b> ${esc(r.google_top_results)}</p>` : ''}
+        ${r.ai_overview_knows_fund ? `<p><b>Google AI Overview sources:</b> ${esc(r.ai_overview_sources || '—')}</p>
+        <p><b>What Google's AI says:</b> ${esc(r.ai_overview_summary || '—')}</p>` : ''}
+        <p><b>Researched:</b> ${esc(r.researched_on)}</p>
+      </details>
+    </article>`;
+  }
+
+  function render() {
+    const pool = matching();
+    const count = mark => pool.filter(r => markOf(r) === mark).length;
+    document.getElementById('n-todo').textContent = count('');
+    document.getElementById('n-contacted').textContent = count('c');
+    document.getElementById('n-skipped').textContent = count('x');
+    const list = pool.filter(inWork);
+    document.getElementById('summary').textContent = rows.length
+      ? `${rows.filter(r => !markOf(r)).length} leads to do · ${rows.filter(r => markOf(r) === 'c').length} contacted · ${rows.length} researched in total`
+      : 'No leads researched yet. The daily job fills this page.';
+    document.getElementById('list').innerHTML = list.length
+      ? list.slice(0, shown).map(card).join('')
+      : `<p class="empty">${rows.length ? 'Nothing here with these filters.' : ''}</p>`;
+    const more = document.getElementById('more');
+    more.hidden = list.length <= shown;
+    more.textContent = `Show more (${list.length - shown} left)`;
+  }
+
+  function wire(id, attr, set) {
+    document.querySelectorAll(`#${id} button`).forEach(b => b.onclick = () => {
+      set(b.dataset[attr]);
+      document.querySelectorAll(`#${id} button`).forEach(x => x.classList.toggle('active', x === b));
+      shown = PAGE;
+      render();
+    });
+  }
+  wire('work-chips', 'work', v => work = v);
+  wire('site-chips', 'status', v => status = v);
+  document.getElementById('day').onchange = e => { day = e.target.value; shown = PAGE; render(); };
+  document.getElementById('source').onchange = e => { source = e.target.value; shown = PAGE; render(); };
+  document.getElementById('more').onclick = () => { shown += PAGE; render(); };
+
+  document.getElementById('list').onclick = e => {
+    const button = e.target.closest('button[data-mark]');
+    if (!button) return;
+    const key = button.dataset.key, mark = button.dataset.mark;
+    if ((marks[key] || {}).s === mark) delete marks[key];
+    else marks[key] = { s: mark, d: new Date().toISOString().slice(0, 10) };
+    saveMarks();
     render();
-  });
-  document.getElementById('day').onchange = e => { day = e.target.value; render(); };
+  };
+
+  document.getElementById('copy-grok').onclick = async () => {
+    const leads = matching().filter(inWork).slice(0, 15);
+    const lines = leads.map(r => `- ${r.brand || r.fund}${r.people ? ' (' + r.people + ')' : ''}${r.location ? ', ' + r.location : ''}`);
+    const prompt = 'For each venture fund below, find the fund\'s X account and its partners\' X accounts. For each, give the handle, '
+      + 'follower count, the date of the last post, and whether they have posted about the fund. Add one recent post I could '
+      + 'mention in an outreach message, with its link. If you cannot find an account, say "not found". Do not guess.\n\n' + lines.join('\n');
+    const note = document.getElementById('tool-note');
+    try {
+      await navigator.clipboard.writeText(prompt);
+      note.textContent = `Copied a prompt with ${leads.length} leads. Paste it into Grok.`;
+    } catch (err) {
+      note.textContent = 'Copying is blocked in this browser. Select and copy this: ' + prompt;
+    }
+  };
 
   fetch('/api/research').then(r => r.json()).then(data => {
-    rows = data.rows || [];
-    const select = document.getElementById('day');
-    select.innerHTML = (data.days || []).map(d => `<option value="${esc(d)}">${esc(d)}</option>`).join('') + '<option value="">All days</option>';
-    day = (data.days || [])[0] || '';
-    select.value = day;
+    const order = r => (established(r) ? 10 : 0) + ((STATUS[r.site_status] || [0, 0, 4])[2]);
+    // Newest research first; within a day, leads that need no judgement come first
+    rows = (data.rows || []).map((r, i) => [r, i]).sort((a, b) =>
+      (b[0].researched_on || '').localeCompare(a[0].researched_on || '') || order(a[0]) - order(b[0]) || a[1] - b[1]).map(x => x[0]);
+    const days = data.days || [];
+    document.getElementById('day').innerHTML = '<option value="">All days</option>'
+      + days.map(d => `<option value="${esc(d)}">${esc(d)}</option>`).join('');
+    const age = days[0] ? Math.floor((Date.now() - new Date(days[0] + 'T00:00:00Z')) / 864e5) : 0;
+    if (age >= 3) {
+      const notice = document.getElementById('notice');
+      notice.hidden = false;
+      notice.textContent = `No new leads have been researched since ${days[0]} (${age} days ago). Check the "Daily lead research" run on GitHub.`;
+    }
     render();
   }).catch(() => { document.getElementById('summary').textContent = 'Could not load research data.'; });
 </script>
