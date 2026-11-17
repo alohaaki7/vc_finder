@@ -1,0 +1,61 @@
+name: Add leads
+
+on:
+  workflow_dispatch:
+    inputs:
+      leads:
+        description: "Funds, separated by ;; — each as: Fund name | partner names | website or link | note"
+        required: true
+        type: string
+      source:
+        description: Where you found them
+        required: false
+        default: Added by you
+        type: choice
+        options:
+          - Added by you
+          - Sales Navigator
+          - Grok
+
+permissions:
+  contents: write
+
+concurrency:
+  group: lead-inbox
+  cancel-in-progress: false
+
+jobs:
+  add:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Add the funds to the inbox
+        env:
+          LEADS: ${{ inputs.leads }}
+          SOURCE: ${{ inputs.source }}
+        run: python lead_inbox.py add --source "$SOURCE"
+
+      - name: Commit the inbox
+        run: |
+          git add MANUAL_LEADS.csv
+          if git diff --cached --quiet; then
+            echo "Nothing new."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Add leads to the inbox"
+          for attempt in 1 2 3; do
+            git pull --rebase origin main && git push && exit 0
+            sleep $((attempt * 10))
+          done
+          exit 1

@@ -73,5 +73,22 @@ class GradeTests(unittest.TestCase):
         self.assertIn("site_may_belong_to_someone_else", result["flags"])
 
 
+class ContactTests(unittest.TestCase):
+    def test_emails_and_linkedin_pages_are_collected_without_builder_links(self):
+        html = """<a href="mailto:hi@atomus.vc?subject=Hello">Email</a> <a href="mailto:user@example.com">x</a>
+        <a href="https://www.linkedin.com/in/ada-lovelace/">Ada</a>
+        <a href="https://www.linkedin.com/company/atomus-ventures/">LinkedIn</a>
+        <a href="https://www.linkedin.com/company/wix-com">Made with Wix</a>
+        <a href="mailto:HI@atomus.vc">again</a>"""
+        emails, linkedin = grade_websites.contacts_in(html)
+        self.assertEqual(emails, "hi@atomus.vc")
+        self.assertEqual(linkedin, "https://www.linkedin.com/company/atomus-ventures; https://www.linkedin.com/in/ada-lovelace")
+
+    def test_social_profile_is_not_a_site(self):
+        self.assertTrue(grade_websites.is_social("HTTPS://TWITTER.COM/LOWERCASE"))
+        self.assertTrue(grade_websites.is_social("https://in.linkedin.com/company/x"))
+        self.assertFalse(grade_websites.is_social("https://atomus.vc"))
+
+
 if __name__ == "__main__":
     unittest.main()

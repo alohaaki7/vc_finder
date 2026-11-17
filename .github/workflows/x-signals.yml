@@ -1,0 +1,64 @@
+name: Find new funds on X
+
+# Manual only until a first run has shown what Grok returns and what it costs.
+on:
+  workflow_dispatch:
+    inputs:
+      days:
+        description: How many days back to search
+        required: false
+        default: "7"
+        type: string
+      max_turns:
+        description: Rounds of searching (fewer costs less)
+        required: false
+        default: "4"
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: lead-inbox
+  cancel-in-progress: false
+
+jobs:
+  search:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Search X with Grok
+        env:
+          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+          DAYS: ${{ inputs.days }}
+          MAX_TURNS: ${{ inputs.max_turns }}
+        run: python x_signals.py --days "$DAYS" --max-turns "$MAX_TURNS"
+
+      - name: Commit the inbox
+        run: |
+          git add MANUAL_LEADS.csv
+          if git diff --cached --quiet; then
+            echo "No new funds."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Add funds found on X"
+          for attempt in 1 2 3; do
+            git pull --rebase origin main && git push && exit 0
+            sleep $((attempt * 10))
+          done
+          exit 1

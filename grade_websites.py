@@ -55,6 +55,11 @@ PLACEHOLDER_PATTERN = re.compile(
     r"just another wordpress site|index of /|it works!",
     re.IGNORECASE,
 )
+EMAIL_PATTERN = re.compile(r"mailto:([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})", re.IGNORECASE)
+LINKEDIN_PATTERN = re.compile(r"https?://(?:[a-z]{2,3}\.)?linkedin\.com/(?:company|in)/[A-Za-z0-9_%\-]+", re.IGNORECASE)
+# Addresses that belong to a site builder or a template, not to the firm
+NOT_A_CONTACT = re.compile(r"example\.|sentry|wixpress|squarespace|godaddy|domain\.com$|@email\.com$|yourname|user@", re.IGNORECASE)
+NOT_A_FIRM_PAGE = re.compile(r"/company/(wix-com|wix|squarespace|webflow(-inc-?)?|framer|wordpress|godaddy|carrd)$", re.IGNORECASE)
 BOT_WALL_PATTERN = re.compile(
     r"attention required|just a moment\.\.\.|cf-browser-verification|checking your browser|"
     r"access denied|request blocked|captcha",
@@ -106,7 +111,8 @@ SOCIAL_LINK_HOSTS = SOCIAL_HOSTS + ("youtube.com", "medium.com", "substack.com",
 
 OUTPUT_FIELDS = [
     "crd_number", "firm", "registration_date", "country", "website_reported", "final_url",
-    "http_status", "grade", "missing", "builder", "flags", "evidence", "pages_checked", "words", "checked_at",
+    "http_status", "grade", "missing", "builder", "flags", "evidence", "pages_checked", "words", "emails",
+    "linkedin", "checked_at",
 ]
 
 
@@ -122,6 +128,31 @@ def normalize_url(raw: str) -> str:
 
 def host_of(url: str) -> str:
     return urllib.parse.urlparse(url).netloc.lower().removeprefix("www.")
+
+
+def is_social(url: str) -> bool:
+    """True for a profile on LinkedIn, X and the like, which is not a firm's own site."""
+    host = host_of(normalize_url(url))
+    return any(host == social or host.endswith("." + social) for social in SOCIAL_HOSTS)
+
+
+def contacts_in(html: str) -> tuple[str, str]:
+    """Contact emails and LinkedIn pages a site links to, as two "; "-joined strings."""
+    emails = []
+    for address in EMAIL_PATTERN.findall(html):
+        address = address.lower()
+        if address not in emails and not NOT_A_CONTACT.search(address):
+            emails.append(address)
+    pages = []
+    for link in LINKEDIN_PATTERN.findall(html):
+        link = link.rstrip("/")
+        if NOT_A_FIRM_PAGE.search(link):
+            continue  # the site builder's own page, linked from its footer badge
+        if link.lower() not in [p.lower() for p in pages]:
+            pages.append(link)
+    # Company pages first: a firm page is the safer guess than one person's profile
+    pages.sort(key=lambda link: "/company/" not in link.lower())
+    return "; ".join(emails[:3]), "; ".join(pages[:12])
 
 
 def fetch(session: requests.Session, url: str):
@@ -179,15 +210,16 @@ def grade_site(row: dict) -> dict:
         "country": row.get("country", ""),
         "website_reported": reported,
         "final_url": "", "http_status": "", "grade": "", "missing": "", "builder": "",
-        "flags": "", "evidence": "", "pages_checked": 0, "words": "",
+        "flags": "", "evidence": "", "pages_checked": 0, "words": "", "emails": "", "linkedin": "",
         "checked_at": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
     }
     url = normalize_url(reported)
     if not url:
         result.update(grade="none_reported", evidence="No website on the SEC adviser registration.")
         return result
-    if any(host_of(url) == social or host_of(url).endswith("." + social) for social in SOCIAL_HOSTS):
-        result.update(grade="social_only", evidence=f"Reported website is a {host_of(url)} profile, not a firm site.")
+    if is_social(url):
+        result.update(grade="social_only", evidence=f"Reported website is a {host_of(url)} profile, not a firm site.",
+                      linkedin=url if "linkedin.com" in host_of(url) else "")
         return result
 
     session = requests.Session()
@@ -288,6 +320,7 @@ def grade_site(row: dict) -> dict:
         flags.append("site_may_belong_to_someone_else")
 
     builder = next((name for name, pattern in BUILDERS if pattern.search(html_all)), "")
+    result["emails"], result["linkedin"] = contacts_in(html_all)
     if cjk_chars > 200:
         flags.append("non_english_site")
     script_tags = len(re.findall(r"<script\b", html_all, re.IGNORECASE))

@@ -66,6 +66,51 @@ class QueueTests(unittest.TestCase):
         self.assertEqual([item[1]["name"] for item in queue],
                          ["Maple Syrup Ventures, Fund MIV, LLC", "Valhalla Ventures Fund I LP"])
 
+    def test_adviser_and_inbox_leads_join_the_queue_in_order(self):
+        def adviser(name, registered, site=""):
+            return {"name": daily_research.tidy_name(name), "brand": daily_research.adviser_brand(name),
+                    "source": "SEC adviser registration",
+                    "sec_number": "adv-" + name, "filing_date": registered, "record_site": site,
+                    "record_name": "SEC adviser record", "record_complete": True, "sec_people": ""}
+        leads = [
+            lead("Raised Fund I, LP", sold="$8M"),
+            lead("Quiet Fund I, LP", sold="$0"),
+            lead("Old Hand Capital Fund IV, LP", code="existing_manager"),
+        ]
+        advisers = [
+            adviser("NEW SITE VENTURES MANAGEMENT, LLC", "2026-10-01", "https://newsite.vc"),
+            adviser("NEW NOSITE VENTURES, LLC", "2026-09-01"),
+            adviser("YOUNG SOCIAL CAPITAL", "2024-05-01", "https://www.linkedin.com/company/young-social"),
+            adviser("YOUNG WITHSITE CAPITAL", "2024-05-01", "https://youngwithsite.com"),
+            adviser("OLD HAND CAPITAL MANAGEMENT LLC", "2026-10-10"),
+            adviser("RAISED MANAGEMENT LLC", "2026-10-10"),
+        ]
+        inbox = daily_research.inbox_leads([{"fund": "Seen On X Ventures", "people": "Ada Lovelace, Alan Turing",
+                                             "website": "", "link": "https://x.com/i/status/1", "source": "Found on X",
+                                             "added_on": "2026-10-28"}])
+        queue = daily_research.build_queue(leads, set(), datetime(2026, 10, 29), set(), advisers, inbox)
+        self.assertEqual([(priority, item["name"]) for priority, item in queue], [
+            ("Found on X", "Seen On X Ventures"),
+            ("Raised $1-20M", "Raised Fund I, LP"),
+            ("New VC adviser", "New Nosite Ventures, LLC"),
+            ("New VC adviser", "New Site Ventures Management, LLC"),
+            ("New first fund", "Quiet Fund I, LP"),
+            ("Young firm, no site on record", "Young Social Capital"),
+        ])
+        self.assertEqual(queue[0][1]["sec_people"], "Ada Lovelace; Alan Turing")
+
+    def test_adviser_names_become_firm_names(self):
+        cases = {
+            "FIRST RAYS VENTURE PARTNERS MANAGEMENT COMPANY": "First Rays Venture Partners",
+            "ROGUE WOMEN'S FUND MANAGEMENT, LLC": "Rogue Women's Fund",
+            "FIELD VENTURES M, LP": "Field Ventures",
+            "ABG & CO INVESTMENT MANAGEMENT LLC": "Abg",
+            "Dune Ventures Management, LP": "Dune Ventures",
+            "SF1VC LLC": "SF1VC",
+        }
+        for name, brand in cases.items():
+            self.assertEqual(daily_research.adviser_brand(name), brand)
+
     def test_brand_drops_legal_suffix_and_fund_number(self):
         self.assertEqual(daily_research.brand_of("Syntropy Ventures Fund I, LP"), "Syntropy Ventures")
         self.assertEqual(daily_research.brand_of("NeXeption Capital Fund I, L.P."), "NeXeption Capital")
@@ -129,6 +174,60 @@ class ResearchTests(unittest.TestCase):
             def google(self, query):
                 return None
         self.assertIsNone(daily_research.research("Raised $1-20M", lead("Atomus Fund I, L.P."), DeadTreg()))
+
+    def adviser_lead(self, site=""):
+        return {"name": "Field Ventures M, LP", "brand": "Field Ventures", "source": "SEC adviser registration",
+                "sec_number": "adv-1", "filing_date": "2026-11-10", "phone": "(707) 548-5509", "sec_people": "",
+                "record_site": site, "record_name": "SEC adviser record", "record_complete": True,
+                "no_site_fact": "Lists no website on its SEC adviser registration (last filed 2026-11-10)"}
+
+    def test_adviser_without_a_site_is_recorded_from_the_record_when_search_is_down(self):
+        class DeadTreg(FakeTreg):
+            def google(self, query):
+                return None
+        row = daily_research.research("New VC adviser", self.adviser_lead(), DeadTreg())
+        self.assertEqual((row["site_status"], row["searched"], row["phone"]), ("No site", "no", "(707) 548-5509"))
+        self.assertEqual(row["pitch_points"],
+                         "Lists no website on its SEC adviser registration (last filed 2026-11-10). Not checked on Google.")
+
+    def test_adviser_social_profile_counts_as_no_site_and_keeps_the_link(self):
+        lead_row = self.adviser_lead("https://www.linkedin.com/company/field-ventures")
+        row = daily_research.research("New VC adviser", lead_row, FakeTreg(google=[]))
+        self.assertEqual((row["site_status"], row["searched"]), ("No site", "yes"))
+        self.assertEqual(row["linkedin"], "https://www.linkedin.com/company/field-ventures")
+        self.assertIn("The only site on its SEC adviser record is a linkedin.com profile.", row["pitch_points"])
+
+    def test_reported_site_beats_a_search_guess_and_carries_contacts(self):
+        treg = FakeTreg(google=[{"url": "https://fieldnotes.com/"}, {"url": "https://field.vc/team"}])
+        grade = {"grade": "adequate", "words": 900, "emails": "hi@field.vc", "linkedin": "https://www.linkedin.com/company/field",
+                 "flags": "established_signal: since 2010"}
+        with patch.object(daily_research.grade_websites, "grade_site", return_value=grade):
+            row = daily_research.research("New VC adviser", self.adviser_lead("field.vc"), treg)
+        self.assertEqual((row["website"], row["website_source"]), ("https://field.vc/", "SEC adviser record"))
+        self.assertEqual((row["google_own_site_rank"], row["emails"]), (2, "hi@field.vc"))
+        self.assertIn('The site says "since 2010": probably not a new firm.', row["pitch_points"])
+
+    def test_linkedin_links_reach_the_firm_not_its_portfolio(self):
+        links = ("https://www.linkedin.com/company/alignai; https://www.linkedin.com/in/ada-lovelace; "
+                 "https://www.linkedin.com/company/rogue-women-vc")
+        self.assertEqual(daily_research.firm_linkedin(links, ["rogue", "women"]),
+                         "https://www.linkedin.com/company/rogue-women-vc; https://www.linkedin.com/in/ada-lovelace")
+        # Several company pages and none carries the brand: they are portfolio companies
+        portfolio = "https://www.linkedin.com/company/alignai; https://www.linkedin.com/company/allvoicesco"
+        self.assertEqual(daily_research.firm_linkedin(portfolio, ["rogue", "women"]), "")
+        # A single company page is the firm's own even under another name
+        self.assertEqual(daily_research.firm_linkedin("https://www.linkedin.com/company/80243337", ["across"]),
+                         "https://www.linkedin.com/company/80243337")
+
+    def test_rejected_token_stops_further_calls(self):
+        class Response:
+            status_code, headers = 401, {}
+        treg = daily_research.Treg("token", 1.0)
+        with patch.object(daily_research.requests, "request", return_value=Response()) as request:
+            treg.google("first")
+            treg.google("second")
+        self.assertEqual(request.call_count, 1)
+        self.assertEqual(treg.why_unavailable, "treg rejected the token")
 
     def test_rejected_call_is_not_an_empty_result(self):
         class Response:
