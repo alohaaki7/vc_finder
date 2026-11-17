@@ -41,7 +41,7 @@ def parse_lines(text: str, source: str, today: str) -> list[dict]:
     for line in str(text or "").replace(";;", "\n").splitlines():
         parts = [part.strip() for part in line.strip().strip("|").split("|")]
         fund = parts[0].lstrip("-*•0123456789. ").strip() if parts else ""
-        if not fund or name_key(fund) in {"fund", "fund name", "name"} or set(fund) <= set("-: "):
+        if not fund or name_key(fund) in {"fund", "fund name", "name", "none"} or set(fund) <= set("-: "):
             continue
         row = {"added_on": today, "fund": fund, "people": "", "website": "", "link": "", "source": source, "note": ""}
         for part in parts[1:]:

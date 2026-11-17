@@ -371,9 +371,9 @@ def build_queue(leads: list[dict], done: set[str], today: datetime, done_manager
                           key=lambda lead: (no_real_site(lead), lead["filing_date"]), reverse=True)
     young_no_site = sorted((lead for lead in advisers if lead["filing_date"] < cutoff and no_real_site(lead)),
                            key=lambda lead: lead["filing_date"], reverse=True)
-    # A fund found on X by a manager with earlier Form D funds is not a new firm; hand-added funds always stay
+    # A fund Grok found on X by a manager with earlier Form D funds is not a new firm; hand-added funds always stay
     added = [lead for lead in inbox or [] if lead_key(lead) not in done
-             and not (lead["source"] == "Found on X" and manager_key(lead["name"]) in established)]
+             and not (lead["source"] in {"Found on X", "Grok"} and manager_key(lead["name"]) in established)]
 
     queue = ([(lead["source"], lead) for lead in added]
              + [("Raised $1-20M", lead) for lead in raised] + [("New VC adviser", lead) for lead in new_advisers]

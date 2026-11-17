@@ -20,6 +20,14 @@ class InboxTests(unittest.TestCase):
         self.assertEqual((rows[1]["website"], rows[1]["link"]), ("https://projectventures.co", ""))
         self.assertEqual(rows[2]["source"], "Found on X")
 
+    def test_one_pasted_line_from_a_grok_task(self):
+        text = ("Black Prism Capital Partners | Steven Miller | https://x.com/stevenm/status/111 | $40M Fund I ;; "
+                "Project Ventures | Ada Lovelace, Alan Turing | https://x.com/pv/status/222 | pre-seed ;; NONE")
+        rows = lead_inbox.parse_lines(text, "Grok", "2026-11-17")
+        self.assertEqual([(row["fund"], row["people"]) for row in rows], [
+            ("Black Prism Capital Partners", "Steven Miller"), ("Project Ventures", "Ada Lovelace, Alan Turing")])
+        self.assertEqual(rows[1]["link"], "https://x.com/pv/status/222")
+
     def test_a_fund_is_added_once(self):
         with tempfile.TemporaryDirectory() as folder:
             path = os.path.join(folder, "inbox.csv")
