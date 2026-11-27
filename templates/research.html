@@ -4,71 +4,104 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Leads to work</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=Instrument+Serif&display=swap" rel="stylesheet">
 <style>
+  /* Alamat studio look: paper, ink and slate, hairline rules, DM Sans with Instrument Serif titles */
   :root {
-    --bg: #0a0b10; --panel: #12131c; --border: rgba(255,255,255,0.08); --text: #f3f4f6;
-    --muted: #9ca3af; --neon: #00e5ff; --green: #34d399; --orange: #ffb86b; --pink: #ff4f9a;
+    --paper: #f5f4f0; --card: #fbfaf7; --raised: #ecebe5; --line: #dcd8d1; --line-strong: #c4bfb7;
+    --ink: #141414; --ink-2: #4a4844; --muted: #6b6862; --slate: #344c58;
+    --positive: #2f6b4f; --caution: #8a5a14; --negative: #b42318;
+    --ease: cubic-bezier(0.22, 1, 0.36, 1);
+    --ui: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --display: 'Instrument Serif', Georgia, serif;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-  body { background: var(--bg); color: var(--text); font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
-    -webkit-text-size-adjust: 100%; }
-  .wrap { max-width: 760px; margin: 0 auto; padding: 14px 16px calc(28px + env(safe-area-inset-bottom)); }
-  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
-  h1 { font-size: 1.3rem; }
-  nav { display: flex; gap: 6px; }
-  nav a { color: var(--neon); text-decoration: none; font-size: 0.85rem; min-height: 40px; display: flex; align-items: center;
-    padding: 0 10px; border: 1px solid var(--border); border-radius: 10px; }
-  .summary { color: var(--muted); font-size: 0.88rem; margin-bottom: 10px; }
-  .notice { border: 1px solid rgba(255,184,107,0.35); color: var(--orange); border-radius: 10px; padding: 10px 12px;
-    font-size: 0.86rem; margin-bottom: 10px; }
-  .sticky { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 6px 0 8px; margin: 0 -16px; padding-left: 16px; padding-right: 16px; }
-  .chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+  body { background: var(--paper); color: var(--ink); font: 15px/1.5 var(--ui); -webkit-text-size-adjust: 100%; -webkit-font-smoothing: antialiased; }
+  button, select, a { font-family: inherit; transition: color 160ms var(--ease), background-color 160ms var(--ease), border-color 160ms var(--ease), opacity 160ms var(--ease); }
+  :focus-visible { outline: 2px solid var(--slate); outline-offset: 2px; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 16px 16px calc(32px + env(safe-area-inset-bottom)); }
+
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
+  .logo { display: inline-flex; align-items: center; gap: 8px; color: var(--slate); text-decoration: none; }
+  .logo svg { width: 28px; height: 24px; fill: none; stroke: currentColor; stroke-width: 14; }
+  .logo span { font-size: 20px; font-weight: 600; letter-spacing: -0.02em; line-height: 1; }
+  nav { display: flex; gap: 20px; }
+  nav a { color: var(--ink); text-decoration: none; font-size: 14px; min-height: 40px; display: flex; align-items: center;
+    border-bottom: 1px solid transparent; }
+  nav a:hover { border-bottom-color: var(--ink); }
+
+  h1 { font-family: var(--display); font-weight: 400; font-size: 48px; line-height: 1.02; letter-spacing: -0.02em; margin: 32px 0 8px; }
+  .summary { color: var(--ink-2); font-size: 15px; margin-bottom: 16px; font-variant-numeric: tabular-nums; }
+  .notice { border-left: 2px solid var(--caution); color: var(--caution); padding: 4px 0 4px 12px; font-size: 14px; margin-bottom: 16px; }
+
+  .sticky { position: sticky; top: 0; z-index: 5; background: var(--paper); margin: 0 -16px; padding: 8px 16px; border-bottom: 1px solid var(--line); }
+  .chips { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
   .chips::-webkit-scrollbar { display: none; }
-  .chips + .chips { margin-top: 6px; }
-  .chips button { flex: 0 0 auto; min-height: 40px; padding: 0 13px; border-radius: 999px; border: 1px solid var(--border);
-    background: rgba(255,255,255,0.04); color: var(--muted); font-size: 0.86rem; cursor: pointer; }
-  .chips button.active { border-color: var(--neon); color: var(--neon); background: rgba(0,229,255,0.08); }
-  .chips button b { font-weight: 600; color: inherit; opacity: 0.75; margin-left: 4px; }
-  .selects { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0 12px; }
-  select { width: 100%; min-width: 0; background: var(--panel); color: var(--text); border: 1px solid var(--border);
-    border-radius: 10px; min-height: 42px; padding: 0 10px; font-size: 16px; }
-  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 14px; margin-bottom: 10px; }
-  .card.handled { opacity: 0.62; }
-  .fund { font-weight: 650; font-size: 1.04rem; overflow-wrap: anywhere; }
-  .meta { color: var(--muted); font-size: 0.82rem; margin-top: 3px; }
-  .meta.flagged { color: var(--orange); }
-  .badges { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 8px; }
-  .badge { font-size: 0.78rem; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); }
-  .site-none { color: var(--pink); border-color: rgba(255,79,154,0.35); }
-  .site-empty { color: var(--orange); border-color: rgba(255,184,107,0.35); }
-  .site-there { color: var(--green); border-color: rgba(52,211,153,0.35); }
-  .points { margin: 6px 0 0 18px; font-size: 0.9rem; }
+  .chips + .chips { margin-top: 8px; }
+  .chips button { flex: 0 0 auto; min-height: 40px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--line);
+    background: transparent; color: var(--ink-2); font-size: 14px; font-weight: 500; cursor: pointer; }
+  .chips button:hover { border-color: var(--line-strong); color: var(--ink); }
+  .chips button.active { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+  .chips button b { font-weight: 400; color: inherit; opacity: 0.7; margin-left: 6px; font-variant-numeric: tabular-nums; }
+  .selects { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0 8px; }
+  select { width: 100%; min-width: 0; background: var(--card); color: var(--ink); border: 1px solid var(--line);
+    border-radius: 8px; min-height: 44px; padding: 0 12px; font-size: 16px; }
+  select:hover { border-color: var(--line-strong); }
+
+  .card { border-top: 1px solid var(--line); padding: 24px 0; }
+  .card.handled { opacity: 0.55; }
+  .fund { font-family: var(--display); font-weight: 400; font-size: 28px; line-height: 1.1; letter-spacing: -0.01em; overflow-wrap: anywhere; }
+  .meta { color: var(--ink-2); font-size: 14px; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .meta.flagged { color: var(--slate); }
+  .badges { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+  .badge { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding: 2px 8px; border-radius: 4px;
+    border: 1px solid var(--line); color: var(--ink-2); background: var(--card); }
+  .badge svg { width: 12px; height: 12px; flex: 0 0 auto; }
+  .site-none, .site-empty, .site-there { color: var(--slate); border-color: rgba(52, 76, 88, 0.28); }
+  .site-empty.caution { color: var(--caution); border-color: rgba(138, 90, 20, 0.28); }
+  .points { margin: 4px 0 0 18px; font-size: 15px; color: var(--ink); }
   .points li { margin-bottom: 4px; overflow-wrap: anywhere; }
-  details { margin-top: 8px; font-size: 0.85rem; color: var(--muted); }
-  details summary { min-height: 36px; display: flex; align-items: center; cursor: pointer; }
-  details p { margin-top: 6px; overflow-wrap: anywhere; }
-  details a { color: var(--neon); display: inline-block; padding: 6px 0; }
-  .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .points li::marker { color: var(--muted); }
+  details { margin-top: 12px; font-size: 14px; color: var(--ink-2); }
+  details summary { min-height: 36px; display: flex; align-items: center; cursor: pointer; color: var(--muted); }
+  details summary:hover { color: var(--ink); }
+  details p { margin-top: 8px; overflow-wrap: anywhere; }
+  details b { font-weight: 500; color: var(--ink); }
+  details a { color: var(--slate); display: inline-block; padding: 4px 0; text-underline-offset: 3px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
   .row a, .row button { flex: 1 1 96px; text-align: center; min-height: 44px; display: flex; align-items: center; justify-content: center;
-    border-radius: 10px; border: 1px solid var(--border); color: var(--text); background: transparent; text-decoration: none;
-    font-size: 0.88rem; padding: 0 8px; cursor: pointer; font-family: inherit; }
-  .row a.primary { background: var(--neon); color: #041016; border-color: var(--neon); font-weight: 600; }
-  .row.contact a { border-color: rgba(52,211,153,0.35); color: var(--green); }
-  .row.mark button.on { border-color: var(--neon); color: var(--neon); background: rgba(0,229,255,0.08); }
-  .tools { margin: 0 0 10px; }
-  .tools .row { margin-top: 6px; }
-  .tools p { margin-top: 8px; }
-  .empty { color: var(--muted); padding: 30px 0; text-align: center; }
-  #more { width: 100%; min-height: 48px; border-radius: 12px; border: 1px solid var(--border); background: transparent;
-    color: var(--text); font-size: 0.92rem; margin-top: 4px; cursor: pointer; }
+    border-radius: 8px; border: 1px solid var(--line); color: var(--ink); background: var(--card); text-decoration: none;
+    font-size: 14px; font-weight: 500; padding: 0 12px; cursor: pointer; }
+  .row a:hover, .row button:hover { border-color: var(--line-strong); }
+  .row a.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .row a.primary:hover { background: #2b2a28; border-color: #2b2a28; }
+  .row a:active, .row button:active { transform: scale(0.98); }
+  .row.contact a { color: var(--slate); border-color: rgba(52, 76, 88, 0.28); }
+  .row.mark button { background: transparent; color: var(--ink-2); }
+  .row.mark button.on { border-color: var(--slate); color: var(--slate); background: rgba(52, 76, 88, 0.06); }
+  .tools { margin: 0 0 16px; }
+  .tools summary { color: var(--ink-2); }
+  .tools .row { margin-top: 8px; }
+  .tools p { margin-top: 8px; color: var(--muted); }
+  .empty { color: var(--muted); padding: 32px 0; text-align: center; border-top: 1px solid var(--line); }
+  #more { width: 100%; min-height: 48px; border-radius: 8px; border: 1px solid var(--line); background: transparent;
+    color: var(--ink); font-size: 15px; font-weight: 500; margin-top: 8px; cursor: pointer; }
+  #more:hover { border-color: var(--ink); }
+  @media (max-width: 480px) {
+    h1 { font-size: 40px; margin-top: 24px; }
+    .fund { font-size: 24px; }
+  }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <h1>Leads to work</h1>
+    <a class="logo" href="/" aria-label="Alamat lead finder"><svg viewBox="54 82 394 336" aria-hidden="true"><circle cx="248.75" cy="249.75" r="161.5"></circle><line x1="60" y1="249.5" x2="442" y2="249.5"></line></svg><span>alamat</span></a>
     <nav><a href="/">SEC list</a><a href="/adv">Advisers</a></nav>
   </header>
+  <h1>Leads to work</h1>
   <p class="summary" id="summary">Loading…</p>
   <p class="notice" id="notice" hidden></p>
   <details class="tools">
@@ -125,6 +158,14 @@
     'Check by hand': ['', 'Site not confirmed', 2],
     'Has a site': ['site-there', 'Has a site: look yourself', 3],
   };
+  // The studio's circle mark shows the site: empty for none, half for broken or empty, full for a real site
+  const MARK = {
+    'No site': '<circle cx="6" cy="6" r="5" fill="none" stroke="currentColor"/>',
+    'Broken or empty': '<circle cx="6" cy="6" r="5" fill="none" stroke="currentColor"/><path d="M1 6a5 5 0 0 0 10 0z" fill="currentColor"/>',
+    'Has a site': '<circle cx="6" cy="6" r="5" fill="currentColor" stroke="currentColor"/>',
+    'Check by hand': '<circle cx="6" cy="6" r="5" fill="none" stroke="currentColor" stroke-dasharray="2 2"/>',
+  };
+  const siteMark = status => MARK[status] ? `<svg viewBox="0 0 12 12" aria-hidden="true">${MARK[status]}</svg>` : '';
   const established = r => /established_signal/.test(r.site_flags || '');
   const sourceOf = r => r.source || 'SEC Form D';
   const markOf = r => (marks[r.lead_key] || {}).s || '';
@@ -168,10 +209,10 @@
       ${r.people ? `<div class="meta">${esc(r.people)}</div>` : ''}
       ${fmNote(r) ? `<div class="meta flagged">${esc(fmNote(r))}</div>` : ''}
       <div class="badges">
-        <span class="badge ${cls}">${esc(label)}</span>
+        <span class="badge ${cls}">${siteMark(r.site_status)}${esc(label)}</span>
         <span class="badge">${esc(r.priority === 'Fund Momentum' ? 'Flagged by Fund Momentum' : r.priority)}</span>
         ${r.priority !== 'Fund Momentum' && r.fund_momentum_note ? '<span class="badge site-empty">Flagged by Fund Momentum</span>' : ''}
-        ${established(r) ? '<span class="badge site-empty">Looks established</span>' : ''}
+        ${established(r) ? '<span class="badge site-empty caution">Looks established</span>' : ''}
         ${r.builder ? `<span class="badge">Built with ${esc(r.builder)}</span>` : ''}
         ${r.searched === 'no' && !/Not checked on Google/.test(r.pitch_points || '') ? '<span class="badge">Not checked on Google</span>' : ''}
       </div>

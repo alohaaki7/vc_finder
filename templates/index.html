@@ -3,34 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Newest VC Firm Finder</title>
-    <!-- Modern Premium Typography -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <title>Lead finder · Alamat</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=Instrument+Serif&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-primary: #0a0b10;
-            --bg-secondary: #12131c;
-            --bg-glass: rgba(18, 19, 28, 0.7);
-            --border-glass: rgba(255, 255, 255, 0.08);
-            --border-hover: rgba(255, 255, 255, 0.15);
-            
-            --text-main: #f3f4f6;
-            --text-muted: #9ca3af;
-            
-            --accent-blue: #0070f3;
-            --accent-green: #00df9a;
-            --accent-neon: #00e5ff;
-            --accent-orange: #ff9f43;
-            --accent-red: #ff4757;
-            --accent-pink: #ff007a;
-            --shadow-neon: rgba(0, 229, 255, 0.15);
+            --bg-primary: #f5f4f0;
+            --bg-secondary: #fbfaf7;
+            --bg-glass: #fbfaf7;
+            --bg-raised: #ecebe5;
+            --border-glass: #dcd8d1;
+            --border-hover: #c4bfb7;
+
+            --text-main: #141414;
+            --text-secondary: #4a4844;
+            --text-muted: #6b6862;
+
+            --accent-blue: #344c58;
+            --accent-green: #2f6b4f;
+            --accent-neon: #344c58;
+            --accent-orange: #8a5a14;
+            --accent-red: #b42318;
+            --accent-pink: #344c58;
+            --shadow-neon: transparent;
+            --ease: cubic-bezier(0.22, 1, 0.36, 1);
+            --font-ui: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            --font-display: 'Instrument Serif', Georgia, serif;
         }
 
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            font-family: 'Inter', sans-serif;
+            font-family: var(--font-ui);
             scrollbar-width: thin;
             scrollbar-color: var(--border-glass) transparent;
         }
@@ -39,14 +45,10 @@
             background-color: var(--bg-primary);
             color: var(--text-main);
             overflow-x: hidden;
-            background-image: 
-                radial-gradient(circle at 10% 20%, rgba(0, 112, 243, 0.05) 0%, transparent 40%),
-                radial-gradient(circle at 90% 80%, rgba(255, 0, 122, 0.05) 0%, transparent 40%);
-            background-attachment: fixed;
         }
 
         h1, h2, h3, .logo {
-            font-family: 'Outfit', sans-serif;
+            font-family: var(--font-ui);
         }
 
         /* Container & Grid Layout */
@@ -76,22 +78,17 @@
             width: 40px;
             height: 40px;
             border-radius: 12px;
-            background: linear-gradient(135deg, var(--accent-neon), var(--accent-blue));
+            background: var(--text-main);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-weight: bold;
+            font-weight: 500;
             font-size: 1.25rem;
             color: var(--bg-primary);
-            box-shadow: 0 0 15px var(--shadow-neon);
-            animation: pulse 3s infinite;
         }
 
         .header-logo h1 {
             font-size: 1.75rem;
-            background: linear-gradient(90deg, #fff, var(--text-muted));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
         }
 
         .pipeline-controller {
@@ -102,7 +99,6 @@
             display: flex;
             align-items: center;
             gap: 1.5rem;
-            backdrop-filter: blur(10px);
         }
 
         .pipeline-mobile-toggle,
@@ -119,8 +115,7 @@
 
         .controller-group label {
             font-size: 0.8rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
+            letter-spacing: 0;
             color: var(--text-muted);
         }
 
@@ -133,7 +128,7 @@
             outline: none;
             cursor: pointer;
             font-size: 0.9rem;
-            transition: all 0.2s ease;
+            transition: color 160ms var(--ease), background-color 160ms var(--ease), border-color 160ms var(--ease);
         }
 
         select:focus {
@@ -141,7 +136,7 @@
         }
 
         .btn {
-            background: linear-gradient(135deg, var(--accent-neon), var(--accent-blue));
+            background: var(--text-main);
             color: var(--bg-primary);
             border: none;
             padding: 0.6rem 1.5rem;
@@ -152,13 +147,12 @@
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(0, 229, 255, 0.25);
+            transition: color 160ms var(--ease), background-color 160ms var(--ease), border-color 160ms var(--ease);
         }
 
         .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0, 229, 255, 0.4);
+            transform: none;
+            box-shadow: 0 6px 20px rgba(52, 76, 88, 0.4);
         }
 
         .btn:disabled {
@@ -187,8 +181,7 @@
             gap: 0.5rem;
             position: relative;
             overflow: hidden;
-            backdrop-filter: blur(10px);
-            transition: all 0.3s ease;
+            transition: color 160ms var(--ease), background-color 160ms var(--ease), border-color 160ms var(--ease);
         }
 
         .metric-card:hover {
@@ -213,15 +206,14 @@
 
         .metric-title {
             font-size: 0.85rem;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
+            letter-spacing: 0;
             color: var(--text-muted);
         }
 
         .metric-value {
             font-size: 2.25rem;
-            font-weight: 700;
-            font-family: 'Outfit', sans-serif;
+            font-weight: 500;
+            font-family: var(--font-ui);
             margin: 0.25rem 0;
         }
 
@@ -250,8 +242,7 @@
             border: 1px solid var(--border-glass);
             border-radius: 24px;
             padding: 1.5rem;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
             overflow: hidden;
         }
 
@@ -293,7 +284,7 @@
             gap: 0.2rem;
             border: 1px solid var(--border-glass);
             border-radius: 10px;
-            background: rgba(255, 255, 255, 0.025);
+            background: rgba(20, 20, 20, 0.025);
         }
 
         .view-switcher button {
@@ -308,7 +299,7 @@
 
         .view-switcher button.active {
             color: var(--accent-neon);
-            background: rgba(0, 229, 255, 0.1);
+            background: rgba(52, 76, 88, 0.1);
         }
 
         .view-count {
@@ -348,12 +339,11 @@
             border-radius: 12px;
             outline: none;
             font-size: 0.9rem;
-            transition: all 0.2s ease;
+            transition: color 160ms var(--ease), background-color 160ms var(--ease), border-color 160ms var(--ease);
         }
 
         .search-input:focus {
             border-color: var(--accent-neon);
-            box-shadow: 0 0 10px rgba(0, 229, 255, 0.15);
         }
 
         .search-icon {
@@ -372,14 +362,14 @@
         }
 
         .filter-tag {
-            background: rgba(255, 255, 255, 0.03);
+            background: rgba(20, 20, 20, 0.03);
             border: 1px solid var(--border-glass);
             color: var(--text-muted);
             padding: 0.4rem 0.8rem;
             border-radius: 20px;
             font-size: 0.8rem;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: color 160ms var(--ease), background-color 160ms var(--ease), border-color 160ms var(--ease);
         }
 
         .filter-tag:hover {
@@ -388,7 +378,7 @@
         }
 
         .filter-tag.active {
-            background: rgba(0, 229, 255, 0.1);
+            background: rgba(52, 76, 88, 0.1);
             border-color: var(--accent-neon);
             color: var(--accent-neon);
         }
@@ -419,9 +409,8 @@
             color: var(--text-muted);
             font-weight: 500;
             padding: 0.8rem 1rem;
-            text-transform: uppercase;
             font-size: 0.75rem;
-            letter-spacing: 0.05em;
+            letter-spacing: 0;
             position: sticky;
             top: 0;
             z-index: 10;
@@ -442,26 +431,26 @@
         }
 
         tr:hover td {
-            background: rgba(255, 255, 255, 0.02);
+            background: rgba(20, 20, 20, 0.02);
             cursor: pointer;
         }
 
         tr.selected td {
-            background: rgba(0, 112, 243, 0.08);
-            border-bottom-color: rgba(0, 112, 243, 0.3);
+            background: rgba(52, 76, 88, 0.08);
+            border-bottom-color: rgba(52, 76, 88, 0.3);
         }
 
         .mobile-lead-card {
             border: 1px solid var(--border-glass);
             border-radius: 14px;
-            background: rgba(255, 255, 255, 0.025);
+            background: rgba(20, 20, 20, 0.025);
             color: var(--text-main);
             text-align: left;
         }
 
         .mobile-lead-card.selected {
-            border-color: rgba(0, 229, 255, 0.5);
-            background: rgba(0, 229, 255, 0.055);
+            border-color: rgba(52, 76, 88, 0.5);
+            background: rgba(52, 76, 88, 0.055);
         }
 
         .mobile-card-button {
@@ -504,7 +493,7 @@
 
         .mobile-card-title {
             min-width: 0;
-            font-family: 'Outfit', sans-serif;
+            font-family: var(--font-ui);
             font-size: 1rem;
             font-weight: 600;
             line-height: 1.3;
@@ -552,11 +541,11 @@
             font-weight: 600;
         }
 
-        .badge-first { background: rgba(255, 0, 122, 0.1); color: var(--accent-pink); border: 1px solid rgba(255, 0, 122, 0.2); }
-        .badge-new { background: rgba(0, 112, 243, 0.1); color: #70a1ff; border: 1px solid rgba(0, 112, 243, 0.2); }
-        .badge-estab { background: rgba(156, 163, 175, 0.1); color: var(--text-muted); }
-        .badge-fund2 { background: rgba(255, 159, 67, 0.12); color: #ffb86b; border: 1px solid rgba(255, 159, 67, 0.3); }
-        .badge-early { background: rgba(16, 185, 129, 0.12); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.25); }
+        .badge-first { background: rgba(52, 76, 88, 0.1); color: var(--accent-pink); border: 1px solid rgba(52, 76, 88, 0.2); }
+        .badge-new { background: rgba(52, 76, 88, 0.1); color: #344c58; border: 1px solid rgba(52, 76, 88, 0.2); }
+        .badge-estab { background: rgba(20, 20, 20, 0.05); color: var(--text-muted); }
+        .badge-fund2 { background: rgba(138, 90, 20, 0.12); color: #8a5a14; border: 1px solid rgba(138, 90, 20, 0.3); }
+        .badge-early { background: rgba(47, 107, 79, 0.12); color: #2f6b4f; border: 1px solid rgba(47, 107, 79, 0.25); }
         .lead-sub { display: block; margin-top: 0.2rem; font-size: 0.78rem; font-weight: 400; color: var(--text-muted); }
         .lead-sub .badge { margin-left: 0; margin-right: 0.35rem; }
         
@@ -568,11 +557,11 @@
             align-items: center;
             justify-content: center;
             font-size: 0.75rem;
-            font-weight: 700;
+            font-weight: 500;
         }
-        .score-low { background: rgba(255, 71, 87, 0.1); color: var(--accent-red); border: 1px solid rgba(255, 71, 87, 0.2); }
-        .score-mid { background: rgba(255, 159, 67, 0.1); color: var(--accent-orange); border: 1px solid rgba(255, 159, 67, 0.2); }
-        .score-high { background: rgba(0, 223, 154, 0.1); color: var(--accent-green); border: 1px solid rgba(0, 223, 154, 0.2); }
+        .score-low { background: rgba(180, 35, 24, 0.1); color: var(--accent-red); border: 1px solid rgba(180, 35, 24, 0.2); }
+        .score-mid { background: rgba(138, 90, 20, 0.1); color: var(--accent-orange); border: 1px solid rgba(138, 90, 20, 0.2); }
+        .score-high { background: rgba(47, 107, 79, 0.1); color: var(--accent-green); border: 1px solid rgba(47, 107, 79, 0.2); }
 
         .domain-tag {
             display: flex;
@@ -606,7 +595,7 @@
         .detail-name {
             font-size: 1.5rem;
             font-weight: 600;
-            color: #fff;
+            color: var(--text-main);
             margin-bottom: 0.25rem;
         }
 
@@ -622,8 +611,7 @@
             color: var(--text-muted);
             font-size: 0.72rem;
             font-weight: 600;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
+            letter-spacing: 0;
         }
 
         .detail-kicker {
@@ -661,7 +649,7 @@
             min-width: 0;
             padding: 0.8rem;
             border-radius: 10px;
-            background: rgba(255, 255, 255, 0.035);
+            background: rgba(20, 20, 20, 0.035);
         }
 
         .lead-fact-label {
@@ -674,7 +662,7 @@
         .lead-fact-value {
             display: block;
             color: var(--text-main);
-            font-family: 'Outfit', sans-serif;
+            font-family: var(--font-ui);
             font-size: 1rem;
             font-variant-numeric: tabular-nums;
             overflow-wrap: anywhere;
@@ -727,8 +715,7 @@
 
         .info-label {
             font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
+            letter-spacing: 0;
             color: var(--text-muted);
         }
 
@@ -762,7 +749,7 @@
         }
 
         .btn-action {
-            background: rgba(255, 255, 255, 0.04);
+            background: rgba(20, 20, 20, 0.04);
             border: 1px solid var(--border-glass);
             color: var(--text-main);
             padding: 0.5rem;
@@ -774,24 +761,24 @@
             align-items: center;
             justify-content: center;
             gap: 0.4rem;
-            transition: all 0.2s ease;
+            transition: color 160ms var(--ease), background-color 160ms var(--ease), border-color 160ms var(--ease);
             text-decoration: none;
         }
 
         .btn-action:hover {
-            background: rgba(255, 255, 255, 0.08);
+            background: rgba(20, 20, 20, 0.08);
             border-color: var(--border-hover);
         }
 
         .btn-action.btn-linkedin {
-            background: rgba(0, 112, 243, 0.1);
-            color: #70a1ff;
-            border-color: rgba(0, 112, 243, 0.2);
+            background: rgba(52, 76, 88, 0.1);
+            color: #344c58;
+            border-color: rgba(52, 76, 88, 0.2);
         }
 
         .btn-action.btn-linkedin:hover {
-            background: rgba(0, 112, 243, 0.18);
-            border-color: rgba(0, 112, 243, 0.4);
+            background: rgba(52, 76, 88, 0.18);
+            border-color: rgba(52, 76, 88, 0.4);
         }
 
         .btn-action.btn-primary-action {
@@ -802,8 +789,8 @@
         }
 
         .btn-action.btn-primary-action:hover {
-            background: #5aeeff;
-            border-color: #5aeeff;
+            background: #344c58;
+            border-color: #344c58;
             transform: translateY(-1px);
         }
 
@@ -811,8 +798,7 @@
             content: 'search';
             color: var(--text-muted);
             font-size: 0.65rem;
-            letter-spacing: 0.05em;
-            text-transform: uppercase;
+            letter-spacing: 0;
         }
 
         .btn-action[aria-disabled="true"] {
@@ -822,7 +808,7 @@
 
         /* Live Console Logger */
         .console-panel {
-            background: #050508;
+            background: #ecebe5;
             border: 1px solid var(--border-glass);
             border-radius: 20px;
             padding: 1.25rem;
@@ -837,14 +823,14 @@
             align-items: center;
             font-size: 0.85rem;
             color: var(--text-muted);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid rgba(20, 20, 20, 0.05);
             padding-bottom: 0.5rem;
         }
 
         .console-output {
             background: transparent;
-            color: #00ff66;
-            font-family: 'Courier New', Courier, monospace;
+            color: #2f6b4f;
+            font-family: ui-monospace, 'SF Mono', Menlo, monospace;
             font-size: 0.78rem;
             line-height: 1.4;
             height: 200px;
@@ -874,7 +860,6 @@
             height: 8px;
             background: var(--accent-green);
             border-radius: 50%;
-            animation: pulse-green 1.5s infinite;
         }
 
         .pulse-dot.inactive {
@@ -884,15 +869,15 @@
 
         /* Animations */
         @keyframes pulse {
-            0% { box-shadow: 0 0 10px rgba(0, 229, 255, 0.15); }
-            50% { box-shadow: 0 0 25px rgba(0, 229, 255, 0.4); }
-            100% { box-shadow: 0 0 10px rgba(0, 229, 255, 0.15); }
+            0% { box-shadow: 0 0 10px rgba(52, 76, 88, 0.15); }
+            50% { box-shadow: 0 0 25px rgba(52, 76, 88, 0.4); }
+            100% { box-shadow: 0 0 10px rgba(52, 76, 88, 0.15); }
         }
 
         @keyframes pulse-green {
-            0% { box-shadow: 0 0 0 0 rgba(0, 223, 154, 0.7); }
-            70% { box-shadow: 0 0 0 8px rgba(0, 223, 154, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(0, 223, 154, 0); }
+            0% { box-shadow: 0 0 0 0 rgba(47, 107, 79, 0.7); }
+            70% { box-shadow: 0 0 0 8px rgba(47, 107, 79, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(47, 107, 79, 0); }
         }
 
         @keyframes slideIn {
@@ -932,7 +917,7 @@
                 padding: 0.7rem 0.85rem;
                 border: 1px solid var(--border-glass);
                 border-radius: 12px;
-                background: rgba(255, 255, 255, 0.035);
+                background: rgba(20, 20, 20, 0.035);
                 color: var(--text-main);
                 font-weight: 600;
                 cursor: pointer;
@@ -1017,7 +1002,7 @@
 
             .metric-title {
                 font-size: 0.68rem;
-                letter-spacing: 0.05em;
+                letter-spacing: 0;
             }
 
             .metric-value {
@@ -1083,10 +1068,9 @@
                 gap: 0.75rem;
                 margin: 0 -0.9rem 0.75rem;
                 padding: 0.75rem 0.9rem 0.65rem;
-                background: rgba(12, 13, 19, 0.97);
+                background: rgba(245, 244, 240, 0.97);
                 border-top: 1px solid var(--border-glass);
                 border-bottom: 1px solid var(--border-glass);
-                backdrop-filter: blur(12px);
             }
 
             .search-wrapper {
@@ -1276,11 +1260,11 @@
             .mobile-quick-filters::-webkit-scrollbar { display: none; }
             .mobile-quick-filters button {
                 flex: 0 0 auto; min-height: 40px; padding: 0 14px; border-radius: 999px;
-                border: 1px solid var(--border-glass); background: rgba(255, 255, 255, 0.04);
+                border: 1px solid var(--border-glass); background: rgba(20, 20, 20, 0.04);
                 color: var(--text-muted); font-size: 0.88rem; font-weight: 500; cursor: pointer;
             }
             .mobile-quick-filters button.active {
-                border-color: var(--accent-neon); color: var(--accent-neon); background: rgba(0, 229, 255, 0.08);
+                border-color: var(--accent-neon); color: var(--accent-neon); background: rgba(52, 76, 88, 0.08);
             }
             .mobile-search-toggle { min-height: 40px; padding: 6px 12px; font-size: 0.85rem; color: var(--text-muted); }
 
@@ -1297,7 +1281,7 @@
                 display: flex; align-items: center; justify-content: center;
                 position: absolute; top: 0.7rem; right: 0.7rem; min-width: 76px; min-height: 40px;
                 padding: 0 10px; border-radius: 10px; font-size: 0.85rem; font-weight: 600;
-                background: var(--accent-neon); color: #041016; text-decoration: none;
+                background: var(--accent-neon); color: #f5f4f0; text-decoration: none;
             }
 
             .detail-pane.active { display: flex; flex-direction: column; padding-top: 0; }
@@ -1306,8 +1290,7 @@
                 display: flex; align-items: center; gap: 8px; order: -3;
                 position: sticky; top: 0; z-index: 2; margin: 0 -1rem 0.75rem;
                 padding: max(8px, env(safe-area-inset-top)) 1rem 8px;
-                background: rgba(10, 11, 16, 0.96); border-bottom: 1px solid var(--border-glass);
-                backdrop-filter: blur(12px);
+                background: rgba(245, 244, 240, 0.96); border-bottom: 1px solid var(--border-glass);
             }
             .detail-topbar button {
                 min-height: 40px; min-width: 44px; padding: 0 12px; border-radius: 10px;
@@ -1328,7 +1311,122 @@
             .pipeline-mobile-toggle { width: auto; gap: 10px; }
             .pipeline-controller { flex-basis: 100%; }
         }
-        .person-link { color: inherit; text-decoration: underline; text-decoration-color: rgba(0, 229, 255, 0.5); text-underline-offset: 3px; }
+        .person-link { color: inherit; text-decoration: underline; text-decoration-color: rgba(52, 76, 88, 0.5); text-underline-offset: 3px; }
+
+        /* Alamat studio look: paper, ink and slate, hairline rules, DM Sans with Instrument Serif titles */
+        html { -webkit-font-smoothing: antialiased; }
+        body { background: var(--bg-primary); color: var(--text-main); font-family: var(--font-ui); font-size: 15px; }
+        *, button, input, select { font-family: var(--font-ui); }
+        h1, h2, h3, .logo { font-family: var(--font-ui); font-weight: 500; }
+        button, a, input, select { transition: color 160ms var(--ease), background-color 160ms var(--ease), border-color 160ms var(--ease), opacity 160ms var(--ease); }
+        :focus-visible { outline: 2px solid var(--accent-neon); outline-offset: 2px; }
+        .icon { flex: 0 0 auto; display: block; }
+
+        header { padding: 8px 0 24px; margin-bottom: 32px; border-bottom: 1px solid var(--border-glass); }
+        .header-logo { gap: 20px; }
+        .logo { display: inline-flex; align-items: center; gap: 8px; color: var(--accent-blue); text-decoration: none; }
+        .logo-mark { width: 34px; height: 29px; fill: none; stroke: currentColor; stroke-width: 14; }
+        .logo-word { font-size: 24px; font-weight: 600; letter-spacing: -0.02em; line-height: 1; }
+        .logo-meta { padding-left: 20px; border-left: 1px solid var(--border-glass); }
+        .logo-meta h1 { font-family: var(--font-display); font-weight: 400; font-size: 28px; line-height: 1.1; letter-spacing: -0.01em; color: var(--text-main); }
+        .logo-meta p { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+
+        .pipeline-controller { background: transparent; border: 0; padding: 0; border-radius: 0; gap: 16px; }
+        .controller-group label { font-size: 13px; color: var(--text-muted); }
+        select { background: var(--bg-secondary); border: 1px solid var(--border-glass); color: var(--text-main); border-radius: 8px; padding: 8px 12px; font-size: 14px; }
+        select:hover { border-color: var(--border-hover); }
+        select:focus { border-color: var(--accent-neon); }
+        .btn { background: var(--text-main); color: var(--bg-primary); border-radius: 8px; padding: 10px 20px; font-weight: 500; font-size: 14px; box-shadow: none; }
+        .btn:hover { background: #2b2a28; transform: none; box-shadow: none; }
+        .btn:active { transform: scale(0.98); }
+
+        .metrics-grid { gap: 16px; margin-bottom: 32px; }
+        .metric-card { background: transparent; border: 0; border-top: 1px solid var(--text-main); border-radius: 0; padding: 16px 0 0; gap: 4px; }
+        .metric-card:hover { transform: none; border-color: var(--text-main); background: transparent; }
+        .metric-card::before { content: none; }
+        .metric-title { font-size: 13px; color: var(--text-secondary); }
+        .metric-value { font-family: var(--font-display); font-weight: 400; font-size: 48px; line-height: 1; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; margin: 4px 0; color: var(--text-main); }
+        .metric-desc { font-size: 13px; color: var(--text-muted); }
+
+        .panel { background: var(--bg-secondary); border: 1px solid var(--border-glass); border-radius: 16px; box-shadow: none; padding: 24px; }
+        .panel-title { font-family: var(--font-display); font-weight: 400; font-size: 28px; letter-spacing: -0.01em; color: var(--text-main); }
+        .view-switcher { background: var(--bg-raised); border: 0; border-radius: 10px; padding: 4px; gap: 4px; }
+        .view-switcher button { border-radius: 6px; color: var(--text-secondary); font-size: 14px; font-weight: 500; }
+        .view-switcher button:hover { color: var(--text-main); }
+        .view-switcher button.active { background: var(--bg-secondary); color: var(--text-main); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06); }
+        .view-count, .results-summary, .refresh-status { color: var(--text-muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+
+        .search-input { background: var(--bg-primary); border: 1px solid var(--border-glass); border-radius: 8px; color: var(--text-main); font-size: 14px; }
+        .search-input::placeholder { color: var(--text-muted); }
+        .search-input:focus { border-color: var(--accent-neon); box-shadow: 0 0 0 3px rgba(52, 76, 88, 0.12); }
+        .search-icon { color: var(--text-muted); display: flex; align-items: center; }
+        .filter-tag { background: transparent; border: 1px solid var(--border-glass); color: var(--text-secondary); border-radius: 8px; font-size: 13px; font-weight: 500; }
+        .filter-tag:hover { border-color: var(--border-hover); color: var(--text-main); background: transparent; }
+        .filter-tag.active { background: var(--text-main); border-color: var(--text-main); color: var(--bg-primary); }
+
+        table { font-variant-numeric: tabular-nums; }
+        th { background: var(--bg-secondary); color: var(--text-muted); font-size: 13px; font-weight: 500; border-bottom: 1px solid var(--border-glass); }
+        th:hover { color: var(--text-main); }
+        td { border-bottom: 1px solid var(--border-glass); color: var(--text-main); font-size: 14px; }
+        tr:hover td { background: rgba(20, 20, 20, 0.025); }
+        tr.selected td { background: rgba(52, 76, 88, 0.07); }
+
+        .badge { border-radius: 4px; font-size: 12px; font-weight: 500; padding: 2px 8px; border: 1px solid transparent; }
+        .badge-first, .badge-new { background: rgba(52, 76, 88, 0.08); color: var(--accent-blue); border-color: rgba(52, 76, 88, 0.18); }
+        .badge-estab { background: rgba(20, 20, 20, 0.05); color: var(--text-secondary); }
+        .badge-fund2 { background: rgba(138, 90, 20, 0.08); color: var(--accent-orange); border-color: rgba(138, 90, 20, 0.2); }
+        .badge-early { background: rgba(47, 107, 79, 0.08); color: var(--accent-green); border-color: rgba(47, 107, 79, 0.2); }
+        .lead-sub { color: var(--text-muted); font-size: 13px; }
+        .score-circle { font-variant-numeric: tabular-nums; font-size: 12px; }
+        .domain-tag { color: var(--text-secondary); }
+
+        .detail-name { font-family: var(--font-display); font-weight: 400; font-size: 36px; line-height: 1.1; letter-spacing: -0.01em; color: var(--text-main); }
+        .detail-subtitle { color: var(--text-secondary); font-size: 14px; }
+        .lead-section { border-color: var(--border-glass); }
+        .lead-section-title { color: var(--text-secondary); font-size: 13px; font-weight: 500; }
+        .lead-fact-label, .info-label { color: var(--text-muted); font-size: 13px; }
+        .lead-fact-value, .info-value { color: var(--text-main); font-variant-numeric: tabular-nums; }
+        .lead-note, .issue-item { color: var(--text-secondary); }
+        .btn-action { background: var(--bg-secondary); border: 1px solid var(--border-glass); color: var(--text-main); border-radius: 8px; font-size: 14px; font-weight: 500; }
+        .btn-action:hover { border-color: var(--border-hover); background: var(--bg-secondary); }
+        .btn-action.btn-linkedin, .btn-action.btn-linkedin:hover { background: var(--bg-secondary); color: var(--text-main); border-color: var(--border-glass); }
+        .btn-action.btn-primary-action { background: var(--text-main); border-color: var(--text-main); color: var(--bg-primary); font-weight: 500; }
+        .btn-action.btn-primary-action:hover { background: #2b2a28; border-color: #2b2a28; }
+        .person-link { text-decoration-color: rgba(52, 76, 88, 0.45); }
+        .person-link:hover { text-decoration-color: currentColor; }
+
+        .console-panel { background: var(--bg-secondary); border: 1px solid var(--border-glass); border-radius: 16px; box-shadow: none; }
+        .console-output { background: var(--bg-raised); color: var(--text-secondary); border-radius: 8px; font-size: 12px; }
+        .pulse-dot { background: var(--accent-green); box-shadow: none; }
+        .pulse-dot.inactive { background: var(--border-hover); animation: none; }
+        .empty-placeholder { color: var(--text-muted); }
+        .empty-icon { color: var(--text-muted); display: flex; justify-content: center; opacity: 1; }
+
+        .mobile-lead-card { background: var(--bg-secondary); border: 1px solid var(--border-glass); border-radius: 12px; }
+        .mobile-lead-card.selected { border-color: var(--accent-neon); }
+        .mobile-card-title { font-weight: 500; color: var(--text-main); }
+        .mobile-card-meta, .mobile-card-signal, .mobile-card-review { color: var(--text-secondary); }
+        .pipeline-mobile-toggle { background: var(--bg-secondary); border: 1px solid var(--border-glass); border-radius: 8px; font-weight: 500; }
+
+        @media (max-width: 768px) {
+            body { font-size: 15px; }
+            header { padding: 4px 0 12px; margin-bottom: 12px; }
+            .header-logo { gap: 12px; }
+            .logo-mark { width: 28px; height: 24px; }
+            .logo-word { font-size: 20px; }
+            .logo-meta { padding-left: 12px; }
+            .logo-meta { display: none; }
+            .logo-meta p { display: none; }
+            .logo-word { font-size: 20px; }
+            .panel { padding: 12px; border-radius: 14px; }
+            .filter-tag { border-radius: 8px; }
+            .mobile-quick-filters button { border-radius: 8px; background: transparent; color: var(--text-secondary); font-weight: 500; }
+            .mobile-quick-filters button.active { background: var(--text-main); border-color: var(--text-main); color: var(--bg-primary); }
+            .mobile-card-google { background: var(--text-main); color: var(--bg-primary); border-radius: 8px; font-weight: 500; }
+            .detail-topbar { background: rgba(245, 244, 240, 0.97); }
+            .detail-topbar button { background: var(--bg-secondary); border: 1px solid var(--border-glass); color: var(--text-main); border-radius: 8px; }
+            .detail-name { font-size: 30px; }
+        }
     </style>
 </head>
 <body>
@@ -1336,10 +1434,10 @@
         <!-- Header -->
         <header>
             <div class="header-logo">
-                <div class="logo-symbol">⚡</div>
-                <div>
-                    <h1>VC Lead Engine</h1>
-                    <p style="font-size: 0.75rem; color: var(--text-muted);">SEC EDGAR Fresh Fund Signal Detector</p>
+                <a class="logo" href="/" aria-label="Alamat lead finder"><svg class="logo-mark" viewBox="54 82 394 336" aria-hidden="true"><circle cx="248.75" cy="249.75" r="161.5"></circle><line x1="60" y1="249.5" x2="442" y2="249.5"></line></svg><span class="logo-word">alamat</span></a>
+                <div class="logo-meta">
+                    <h1>Lead finder</h1>
+                    <p>New VC funds from SEC filings</p>
                 </div>
             </div>
 
@@ -1351,15 +1449,15 @@
                 <div class="controller-group">
                     <label for="lead-type">Type</label>
                     <select id="lead-type">
-                        <option value="vc">Venture Capital</option>
-                        <option value="pe">Private Equity</option>
+                        <option value="vc">Venture capital</option>
+                        <option value="pe">Private equity</option>
                         <option value="fund2">Fund II Only</option>
                     </select>
                 </div>
                 <div class="controller-group">
-                    <label for="lead-size">Min Size</label>
+                    <label for="lead-size">Min size</label>
                     <select id="lead-size">
-                        <option value="0" selected>Any Size</option>
+                        <option value="0" selected>Any size</option>
                         <option value="1000000">Above $1M</option>
                         <option value="5000000">Above $5M</option>
                         <option value="10000000">Above $10M</option>
@@ -1369,14 +1467,14 @@
                 <div class="controller-group">
                     <label for="lead-days">Range</label>
                     <select id="lead-days">
-                        <option value="7">Last 7 Days</option>
-                        <option value="30" selected>Last 30 Days</option>
-                        <option value="90">Last 90 Days</option>
+                        <option value="7">Last 7 days</option>
+                        <option value="30" selected>Last 30 days</option>
+                        <option value="90">Last 90 days</option>
                         <option value="180">Last 180 Days</option>
                     </select>
                 </div>
                 <button class="btn" id="btn-run" onclick="triggerPipeline()">
-                    <span id="run-text">Run Pipeline</span>
+                    <span id="run-text">Run pipeline</span>
                 </button>
             </div>
         </header>
@@ -1384,27 +1482,27 @@
         <!-- Stats Grid -->
         <div class="metrics-grid">
             <div class="metric-card">
-                <span class="metric-title">Total Leads Found</span>
+                <span class="metric-title">Total leads</span>
                 <span class="metric-value" id="stat-total">-</span>
                 <span class="metric-desc">Curated in master leadsheet</span>
             </div>
             <div class="metric-card m-first">
-                <span class="metric-title">New This Run</span>
+                <span class="metric-title">New this run</span>
                 <span class="metric-value" id="stat-first">-</span>
                 <span class="metric-desc">Not in the prior master CSV</span>
             </div>
             <div class="metric-card m-redesign">
-                <span class="metric-title">Likely New Firms</span>
+                <span class="metric-title">Likely new firms</span>
                 <span class="metric-value" id="stat-emails">-</span>
                 <span class="metric-desc">No prior manager history found</span>
             </div>
             <div class="metric-card m-noweb">
-                <span class="metric-title">Existing Managers</span>
+                <span class="metric-title">Existing managers</span>
                 <span class="metric-value" id="stat-noweb">-</span>
                 <span class="metric-desc">Prior fund or Fund II evidence</span>
             </div>
             <div class="metric-card m-fund">
-                <span class="metric-title">Needs Review</span>
+                <span class="metric-title">Needs review</span>
                 <span class="metric-value" id="stat-us-based">-</span>
                 <span class="metric-desc" id="stat-review-desc">Weak or incomplete identity check</span>
             </div>
@@ -1415,7 +1513,7 @@
             <!-- Left Panel: Table -->
             <div class="panel">
                 <div class="panel-header">
-                    <h2 class="panel-title" id="panel-title">Newest VC Firm Candidates</h2>
+                    <h2 class="panel-title" id="panel-title">Newest VC firms</h2>
                     <div class="panel-header-actions">
                         <div class="view-switcher" role="tablist" aria-label="Lead dataset">
                             <button type="button" id="view-master" class="active" role="tab" aria-selected="true" onclick="setDataset('master')">Master leads</button>
@@ -1424,7 +1522,7 @@
                             <button type="button" onclick="location.href='/research'">Leads to work<span class="adv-arrow"> ↗</span></button>
                         </div>
                         <a href="/api/leads" download="ALL_VC_LEADS.csv" id="download-link" class="btn-action" style="padding: 0.4rem 0.8rem; border-radius: 8px;">
-                        📥 Download Master CSV
+                        <svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"></path><path d="m7 10 5 5 5-5"></path><path d="M5 20h14"></path></svg>Download CSV
                         </a>
                         <p class="refresh-status" id="backlog-refresh-status" aria-live="polite"></p>
                     </div>
@@ -1433,7 +1531,7 @@
                 <!-- Filters & Search -->
                 <div class="search-filter-bar">
                     <div class="search-wrapper">
-                        <span class="search-icon">🔍</span>
+                        <span class="search-icon"><svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg></span>
                         <input type="text" id="search-input" class="search-input" placeholder="Search firm, contact, signal..." oninput="filterData()">
                     </div>
                     <div class="mobile-quick-filters" id="mobile-quick-filters" role="group" aria-label="Quick views">
@@ -1445,15 +1543,15 @@
                     </div>
                     <button type="button" class="mobile-search-toggle" aria-expanded="false" aria-controls="filter-tags" onclick="const expanded=document.getElementById('filter-tags').classList.toggle('phone-expanded'); this.setAttribute('aria-expanded',String(expanded)); this.textContent=expanded?'Hide filters':'More filters';">More filters</button>
                     <div class="filter-tags" id="filter-tags">
-                        <button class="filter-tag active" data-filter-group="run" onclick="setRunFilter('all', this)">All Runs</button>
-                        <button class="filter-tag" data-filter-group="run" onclick="setRunFilter('new', this)">New This Run</button>
-                        <button class="filter-tag" data-filter-group="run" onclick="setRunFilter('not_raised', this)">Not Raised Yet</button>
+                        <button class="filter-tag active" data-filter-group="run" onclick="setRunFilter('all', this)">All runs</button>
+                        <button class="filter-tag" data-filter-group="run" onclick="setRunFilter('new', this)">New this run</button>
+                        <button class="filter-tag" data-filter-group="run" onclick="setRunFilter('not_raised', this)">Not raised yet</button>
                         <button class="filter-tag" data-filter-group="run" onclick="setRunFilter('fund2', this)">Raising Fund II</button>
-                        <button class="filter-tag active" id="manager-filter-all" data-filter-group="manager" onclick="setManagerFilter('all', this)">All Manager States</button>
-                        <button class="filter-tag" id="manager-filter-likely" data-filter-group="manager" onclick="setManagerFilter('likely_new', this)">Likely New Firms</button>
-                        <button class="filter-tag" data-filter-group="manager" onclick="setManagerFilter('existing_manager', this)">Existing Managers</button>
-                        <button class="filter-tag" data-filter-group="manager" onclick="setManagerFilter('needs_review', this)">Needs Review</button>
-                        <button class="filter-tag active" data-filter-group="stage" onclick="setStageFilter('all', this)">All Stages</button>
+                        <button class="filter-tag active" id="manager-filter-all" data-filter-group="manager" onclick="setManagerFilter('all', this)">All managers</button>
+                        <button class="filter-tag" id="manager-filter-likely" data-filter-group="manager" onclick="setManagerFilter('likely_new', this)">Likely new firms</button>
+                        <button class="filter-tag" data-filter-group="manager" onclick="setManagerFilter('existing_manager', this)">Existing managers</button>
+                        <button class="filter-tag" data-filter-group="manager" onclick="setManagerFilter('needs_review', this)">Needs review</button>
+                        <button class="filter-tag active" data-filter-group="stage" onclick="setStageFilter('all', this)">All stages</button>
                         <button class="filter-tag" data-filter-group="stage" onclick="setStageFilter('Fund I', this)">Fund I</button>
                         <button class="filter-tag" data-filter-group="stage" onclick="setStageFilter('Fund II', this)">Fund II</button>
                     </div>
@@ -1465,13 +1563,13 @@
                     <table id="leads-table">
                         <thead id="table-head">
                             <tr>
-                                <th onclick="sortLeads('firm_name')">Firm Name</th>
-                                <th onclick="sortLeads('manager_novelty_score')">Manager Verdict</th>
+                                <th onclick="sortLeads('firm_name')">Firm</th>
+                                <th onclick="sortLeads('manager_novelty_score')">Manager</th>
                                 <th onclick="sortLeads('freshness_score')">Freshness</th>
                                 <th onclick="sortLeads('fund_stage')">Stage</th>
                                 <th onclick="sortLeads('city')">Location</th>
-                                <th onclick="sortLeads('date_of_first_sale')">First Sale</th>
-                                <th onclick="sortLeads('filing_date')">Filing Date</th>
+                                <th onclick="sortLeads('date_of_first_sale')">First sale</th>
+                                <th onclick="sortLeads('filing_date')">Filed</th>
                             </tr>
                         </thead>
                         <tbody id="table-body">
@@ -1579,7 +1677,7 @@
 
                 <div class="panel" id="detail-placeholder">
                     <div class="empty-placeholder">
-                        <div class="empty-icon">👤</div>
+                        <div class="empty-icon"><svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 20c1.5-3.5 4.5-5 8-5s6.5 1.5 8 5"></path></svg></div>
                         <p>Select a lead to see its capital signal, associated people, website, and LinkedIn routes.</p>
                     </div>
                 </div>
@@ -1587,7 +1685,7 @@
                 <!-- Live Pipeline Console Logs -->
                 <div class="console-panel">
                     <div class="console-header">
-                        <span>Pipeline Runner Live Console</span>
+                        <span>Pipeline log</span>
                         <div style="display: flex; align-items: center; gap: 0.4rem;">
                             <div class="pulse-dot inactive" id="console-status-dot"></div>
                             <span id="console-status-text">Idle</span>
@@ -1723,7 +1821,7 @@
             if (dataset === 'master') {
                 download.href = '/api/leads';
                 download.setAttribute('download', 'ALL_VC_LEADS.csv');
-                download.textContent = '📥 Download Master CSV';
+                download.innerHTML = '<svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"></path><path d="m7 10 5 5 5-5"></path><path d="M5 20h14"></path></svg>Download CSV';
                 download.onclick = null;
                 document.getElementById('backlog-refresh-status').textContent = '';
             } else {
@@ -1753,15 +1851,15 @@
                 `;
             } else {
                 tags.innerHTML = `
-                    <button class="filter-tag active" data-filter-group="run" onclick="setRunFilter('all', this)">All Runs</button>
-                    <button class="filter-tag" data-filter-group="run" onclick="setRunFilter('new', this)">New This Run</button>
-                        <button class="filter-tag" data-filter-group="run" onclick="setRunFilter('not_raised', this)">Not Raised Yet</button>
+                    <button class="filter-tag active" data-filter-group="run" onclick="setRunFilter('all', this)">All runs</button>
+                    <button class="filter-tag" data-filter-group="run" onclick="setRunFilter('new', this)">New this run</button>
+                        <button class="filter-tag" data-filter-group="run" onclick="setRunFilter('not_raised', this)">Not raised yet</button>
                         <button class="filter-tag" data-filter-group="run" onclick="setRunFilter('fund2', this)">Raising Fund II</button>
-                    <button class="filter-tag active" id="manager-filter-all" data-filter-group="manager" onclick="setManagerFilter('all', this)">All Manager States</button>
-                    <button class="filter-tag" id="manager-filter-likely" data-filter-group="manager" onclick="setManagerFilter('likely_new', this)">Likely New Firms</button>
-                    <button class="filter-tag" data-filter-group="manager" onclick="setManagerFilter('existing_manager', this)">Existing Managers</button>
-                    <button class="filter-tag" data-filter-group="manager" onclick="setManagerFilter('needs_review', this)">Needs Review</button>
-                    <button class="filter-tag active" data-filter-group="stage" onclick="setStageFilter('all', this)">All Stages</button>
+                    <button class="filter-tag active" id="manager-filter-all" data-filter-group="manager" onclick="setManagerFilter('all', this)">All managers</button>
+                    <button class="filter-tag" id="manager-filter-likely" data-filter-group="manager" onclick="setManagerFilter('likely_new', this)">Likely new firms</button>
+                    <button class="filter-tag" data-filter-group="manager" onclick="setManagerFilter('existing_manager', this)">Existing managers</button>
+                    <button class="filter-tag" data-filter-group="manager" onclick="setManagerFilter('needs_review', this)">Needs review</button>
+                    <button class="filter-tag active" data-filter-group="stage" onclick="setStageFilter('all', this)">All stages</button>
                     <button class="filter-tag" data-filter-group="stage" onclick="setStageFilter('Fund I', this)">Fund I</button>
                     <button class="filter-tag" data-filter-group="stage" onclick="setStageFilter('Fund II', this)">Fund II</button>
                 `;
@@ -1781,13 +1879,13 @@
                     <th>Next step</th>
                 </tr>` : `
                 <tr>
-                    <th onclick="sortLeads('firm_name')">Firm Name</th>
-                    <th onclick="sortLeads('manager_novelty_score')">Manager Verdict</th>
+                    <th onclick="sortLeads('firm_name')">Firm</th>
+                    <th onclick="sortLeads('manager_novelty_score')">Manager</th>
                     <th onclick="sortLeads('freshness_score')">Freshness</th>
                     <th onclick="sortLeads('fund_stage')">Stage</th>
                     <th onclick="sortLeads('city')">Location</th>
-                    <th onclick="sortLeads('date_of_first_sale')">First Sale</th>
-                    <th onclick="sortLeads('filing_date')">Filing Date</th>
+                    <th onclick="sortLeads('date_of_first_sale')">First sale</th>
+                    <th onclick="sortLeads('filing_date')">Filed</th>
                 </tr>`;
         }
 
@@ -1970,6 +2068,16 @@
             }[char]));
         }
 
+
+        // Names filed in capitals ("SOLARI CAPITAL", "NEW YORK") read as shouting; show them in title case
+        const KEEP_UPPER = new Set(['LLC', 'LP', 'VC', 'II', 'III', 'IV', 'VI', 'VII', 'VIII', 'IX', 'GP', 'US', 'USA', 'AI', 'SF', 'NYC', 'UK', 'ADV', 'SEC', 'SPV']);
+        function tidyCase(value) {
+            const text = String(value ?? '');
+            if (!/[A-Z]{2}/.test(text) || text !== text.toUpperCase()) return text;
+            return text.replace(/[A-Z0-9]+(?:'[A-Z]+)?/g, word => (KEEP_UPPER.has(word) || /\d/.test(word) || !/[AEIOUY]/.test(word))
+                ? word : word.charAt(0) + word.slice(1).toLowerCase());
+        }
+
         function leadSignalBadges(lead) {
             const badges = [];
             if (lead.fund2_raise) badges.push('<span class="badge badge-fund2">Raising Fund II</span>');
@@ -2018,7 +2126,7 @@
                     const signalLabel = lead.vc_signal_strength === 'explicit_sec_vc'
                         ? 'Explicit SEC VC'
                         : (lead.vc_signal_strength === 'public_vc_signal' ? 'Public VC launch' : 'VC name signal');
-                    const title = unresolved ? (lead.name || 'Unresolved VC filing') : (lead.firm_name || lead.name || 'Unnamed firm');
+                    const title = tidyCase(unresolved ? (lead.name || 'Unresolved VC filing') : (lead.firm_name || lead.name || 'Unnamed firm'));
                     button.setAttribute('aria-label', `Review ${title}`);
                     button.innerHTML = `
                         <span class="mobile-card-body">
@@ -2044,9 +2152,9 @@
                         ? 'badge-first'
                         : (managerCode === 'existing_manager' ? 'badge-estab' : 'badge-new');
                     const location = (lead.city && lead.state)
-                        ? `${lead.city}, ${lead.state}`
+                        ? `${tidyCase(lead.city)}, ${lead.state}`
                         : (lead.city || lead.state || lead.country || 'Location unavailable');
-                    const title = lead.firm_name || lead.name || 'Unnamed firm';
+                    const title = tidyCase(lead.firm_name || lead.name || 'Unnamed firm');
                     const newBadge = isNewLead(lead) ? '<span class="badge badge-first">New</span>' : '';
                     const saleNote = lead.early_signal ? '' : `<span>First sale ${escapeHtml(lead.date_of_first_sale || '—')}</span>`;
                     button.setAttribute('aria-label', `Review ${title}`);
@@ -2141,16 +2249,16 @@
                 else if (score >= 7) scoreClass = 'score-mid';
                 const scoreBadge = `<div class="score-circle ${scoreClass}">${score}</div>`;
 
-                const firstSaleDisplay = lead.date_of_first_sale || 'Yet to Occur';
+                const firstSaleDisplay = lead.date_of_first_sale || 'Not yet';
                 const newBadge = isNewLead(lead) ? `<span class="badge badge-first" style="margin-left: 0.45rem;">New</span>` : '';
 
                 tr.innerHTML = `
-                    <td style="font-weight: 600;">${escapeHtml(lead.firm_name)}${newBadge}
+                    <td style="font-weight: 500;">${escapeHtml(tidyCase(lead.firm_name))}${newBadge}
                         <span class="lead-sub">${leadSignalBadges(lead)}${escapeHtml(leadPeopleLine(lead))}</span></td>
                     <td>${managerBadge}</td>
                     <td>${scoreBadge}</td>
                     <td>${escapeHtml(lead.fund_stage)}</td>
-                    <td style="font-weight: 500;">${escapeHtml((lead.city && lead.state) ? `${lead.city}, ${lead.state}` : (lead.city || lead.state || lead.country || '-'))}</td>
+                    <td>${escapeHtml((lead.city && lead.state) ? `${tidyCase(lead.city)}, ${lead.state}` : (tidyCase(lead.city) || lead.state || lead.country || '-'))}</td>
                     <td>${escapeHtml(firstSaleDisplay)}</td>
                     <td>${escapeHtml(lead.filing_date)}</td>
                 `;
@@ -2239,9 +2347,9 @@
             document.getElementById('detail-kicker').textContent = isUnresolvedFiling
                 ? 'Retained VC filing — identity unresolved'
                 : (isBacklog ? 'VC firm research candidate' : 'Lead profile');
-            document.getElementById('det-firm').textContent = isUnresolvedFiling
+            document.getElementById('det-firm').textContent = tidyCase(isUnresolvedFiling
                 ? (lead.name || 'Unresolved VC filing')
-                : (lead.firm_name || 'Unnamed filing');
+                : (lead.firm_name || 'Unnamed filing'));
             document.getElementById('det-name').textContent = isUnresolvedFiling
                 ? 'Operating firm has not been resolved yet.'
                 : (lead.name || 'SEC legal name unavailable');
@@ -2442,7 +2550,7 @@
 
                 if (res.needs_password) {
                     btn.disabled = false;
-                    runText.textContent = "Run Pipeline";
+                    runText.textContent = "Run pipeline";
                     const entered = prompt('Password to run the pipeline:');
                     if (entered) {
                         saveRunPassword(entered);
@@ -2466,12 +2574,12 @@
                 } else {
                     alert('Error starting pipeline: ' + res.message);
                     btn.disabled = false;
-                    runText.textContent = "Run Pipeline";
+                    runText.textContent = "Run pipeline";
                 }
             } catch (e) {
                 console.error("Error launching pipeline:", e);
                 btn.disabled = false;
-                runText.textContent = "Run Pipeline";
+                runText.textContent = "Run pipeline";
             }
         }
 
@@ -2493,7 +2601,7 @@
                     
                     // Re-fetch
                     document.getElementById('btn-run').disabled = false;
-                    document.getElementById('run-text').textContent = "Run Pipeline";
+                    document.getElementById('run-text').textContent = "Run pipeline";
                     
                     fetchStats();
                     fetchLeads();
