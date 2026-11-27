@@ -47,6 +47,9 @@ jobs:
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
 
+      - name: Add funds flagged by Fund Momentum
+        run: python fund_momentum.py
+
       - name: Research the next leads
         env:
           TREG_TOKEN: ${{ secrets.TREG_TOKEN }}
@@ -59,13 +62,13 @@ jobs:
 
       - name: Commit research
         run: |
-          if git diff --quiet -- RESEARCH_LEDGER.csv && git ls-files --error-unmatch RESEARCH_LEDGER.csv >/dev/null 2>&1; then
+          git add RESEARCH_LEDGER.csv MANUAL_LEADS.csv FUND_MOMENTUM_FUNDS.csv
+          if git diff --cached --quiet; then
             echo "No new research."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add RESEARCH_LEDGER.csv
           git commit -m "Daily lead research"
           for attempt in 1 2 3; do
             git pull --rebase origin main && git push && exit 0

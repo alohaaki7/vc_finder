@@ -25,7 +25,7 @@ import sys
 from datetime import datetime, timezone
 
 INBOX_FILE = "MANUAL_LEADS.csv"
-FIELDS = ["added_on", "fund", "people", "website", "link", "source", "note"]
+FIELDS = ["added_on", "fund", "people", "website", "link", "source", "note", "linkedin", "slug", "profile_checked"]
 URL_PATTERN = re.compile(r"^(https?://\S+|[a-z0-9-]+(\.[a-z0-9-]+)+(/\S*)?)$", re.IGNORECASE)
 # A link to a post or profile is where the fund was seen, not the fund's own site
 POST_HOSTS = ("x.com", "twitter.com", "linkedin.com", "substack.com", "medium.com", "techcrunch.com")
@@ -67,6 +67,13 @@ def load(path: str = INBOX_FILE) -> list[dict]:
         return list(csv.DictReader(f))
 
 
+def save(rows: list[dict], path: str = INBOX_FILE) -> None:
+    with open(path, "w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=FIELDS, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(rows)
+
+
 def add(new_rows: list[dict], path: str = INBOX_FILE) -> int:
     """Append rows whose fund is not in the inbox yet; return how many were added."""
     rows = load(path)
@@ -78,10 +85,7 @@ def add(new_rows: list[dict], path: str = INBOX_FILE) -> int:
             known.add(key)
             rows.append(row)
             added += 1
-    with open(path, "w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=FIELDS, extrasaction="ignore")
-        writer.writeheader()
-        writer.writerows(rows)
+    save(rows, path)
     return added
 
 

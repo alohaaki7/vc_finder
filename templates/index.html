@@ -1975,6 +1975,7 @@
             if (lead.fund2_raise) badges.push('<span class="badge badge-fund2">Raising Fund II</span>');
             if (lead.early_signal_label) badges.push(`<span class="badge badge-early">${escapeHtml(lead.early_signal_label)}</span>`);
             if (lead.adv_crd) badges.push(`<span class="badge badge-new">SEC adviser</span>`);
+            if (lead.fund_momentum_note) badges.push('<span class="badge badge-fund2">Flagged by Fund Momentum</span>');
             return badges.join('');
         }
 
@@ -2292,6 +2293,7 @@
             document.getElementById('det-freshness').textContent = isBacklog
                 ? (lead.research_recommendation || 'Research the operating firm, decision-maker, launch evidence, and public presence.')
                 : [
+                    lead.fund_momentum_note || '',
                     lead.fund2_raise ? 'Manager is raising a second main fund; check whether the site and brand look ready for larger investors.' : '',
                     lead.early_signal === 'not_raised' ? 'Fund has not made its first sale yet.' : '',
                     lead.early_signal === 'just_raised' ? `First sale ${lead.date_of_first_sale}, shortly before filing.` : '',

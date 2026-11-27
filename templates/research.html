@@ -36,6 +36,7 @@
   .card.handled { opacity: 0.62; }
   .fund { font-weight: 650; font-size: 1.04rem; overflow-wrap: anywhere; }
   .meta { color: var(--muted); font-size: 0.82rem; margin-top: 3px; }
+  .meta.flagged { color: var(--orange); }
   .badges { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 8px; }
   .badge { font-size: 0.78rem; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); }
   .site-none { color: var(--pink); border-color: rgba(255,79,154,0.35); }
@@ -99,6 +100,7 @@
       <option value="">All sources</option>
       <option value="SEC Form D">New funds (Form D)</option>
       <option value="SEC adviser registration">New firms (adviser registration)</option>
+      <option value="Fund Momentum">Flagged by Fund Momentum</option>
       <option value="other">Added by you or found on X</option>
     </select>
     <select id="day" aria-label="Research day"></select>
@@ -126,6 +128,8 @@
   const established = r => /established_signal/.test(r.site_flags || '');
   const sourceOf = r => r.source || 'SEC Form D';
   const markOf = r => (marks[r.lead_key] || {}).s || '';
+  // Leads from other sources that Fund Momentum also covered carry its note too
+  const fmNote = r => (r.note && !sourceOf(r).startsWith('SEC') ? r.note : '') || r.fund_momentum_note || '';
   const isSocial = url => /(linkedin|twitter|x|facebook|instagram|medium)\.com/i.test(url || '');
 
   function sentences(text) {
@@ -135,7 +139,8 @@
   function matching() {
     return rows.filter(r => (!day || r.researched_on === day)
       && (status === 'all' || r.site_status === status)
-      && (!source || (source === 'other' ? !sourceOf(r).startsWith('SEC') : sourceOf(r) === source)));
+      && (!source || (source === 'other' ? !sourceOf(r).startsWith('SEC') && sourceOf(r) !== 'Fund Momentum'
+        : source === 'Fund Momentum' ? sourceOf(r) === source || !!r.fund_momentum_note : sourceOf(r) === source)));
   }
 
   function inWork(r) {
@@ -150,7 +155,8 @@
     const google = 'https://www.google.com/search?q=' + encodeURIComponent(`"${r.brand || r.fund}"`);
     const src = sourceOf(r);
     const when = src === 'SEC adviser registration' ? 'registered' : src === 'SEC Form D' ? 'filed' : 'added';
-    const recordLabel = src === 'SEC adviser registration' ? 'SEC record' : src === 'SEC Form D' ? 'SEC filing' : 'Source post';
+    const recordLabel = src === 'SEC adviser registration' ? 'SEC record' : src === 'SEC Form D' ? 'SEC filing'
+      : src === 'Fund Momentum' ? 'Fund Momentum post' : 'Source post';
     const email = first(r.emails), linkedin = safeUrl(first(r.linkedin)), phone = String(r.phone || '').trim();
     const points = sentences(r.pitch_points);
     const fallback = r.site_status === 'Has a site'
@@ -160,9 +166,11 @@
       <div class="fund">${esc(src === 'SEC adviser registration' ? r.brand || r.fund : r.fund)}</div>
       <div class="meta">${esc(meta.join(' · '))}</div>
       ${r.people ? `<div class="meta">${esc(r.people)}</div>` : ''}
+      ${fmNote(r) ? `<div class="meta flagged">${esc(fmNote(r))}</div>` : ''}
       <div class="badges">
         <span class="badge ${cls}">${esc(label)}</span>
-        <span class="badge">${esc(r.priority)}</span>
+        <span class="badge">${esc(r.priority === 'Fund Momentum' ? 'Flagged by Fund Momentum' : r.priority)}</span>
+        ${r.priority !== 'Fund Momentum' && r.fund_momentum_note ? '<span class="badge site-empty">Flagged by Fund Momentum</span>' : ''}
         ${established(r) ? '<span class="badge site-empty">Looks established</span>' : ''}
         ${r.builder ? `<span class="badge">Built with ${esc(r.builder)}</span>` : ''}
         ${r.searched === 'no' && !/Not checked on Google/.test(r.pitch_points || '') ? '<span class="badge">Not checked on Google</span>' : ''}
@@ -177,6 +185,7 @@
         ${site ? `<a class="primary" href="${esc(site)}" target="_blank" rel="noopener">Open site</a>` : ''}
         <a class="${site ? '' : 'primary'}" href="${esc(google)}" target="_blank" rel="noopener">Google it</a>
         ${record ? `<a href="${esc(record)}" target="_blank" rel="noopener">${recordLabel}</a>` : ''}
+        ${src !== 'Fund Momentum' && safeUrl(r.fund_momentum_url) ? `<a href="${esc(r.fund_momentum_url)}" target="_blank" rel="noopener">Fund Momentum post</a>` : ''}
       </div>
       <div class="row mark">
         <button data-key="${esc(r.lead_key)}" data-mark="c" class="${mark.s === 'c' ? 'on' : ''}">${mark.s === 'c' ? 'Contacted ' + esc(mark.d || '') + ' · undo' : 'Mark contacted'}</button>
