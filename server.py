@@ -19,6 +19,7 @@ from pipeline import clean_firm_name, extract_related_name, is_entity_identity, 
 from build_research_backlog import build as build_research_backlog, build_rows as build_research_backlog_rows
 from lead_signals import AdvIndex, early_signal, mark_fund2_raises, mark_repeat_filers, sec_people
 from pipeline import normalize_phone
+import fund_momentum
 
 app = Flask(__name__, static_folder="templates")
 
@@ -32,6 +33,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 LEADS_FILE = os.path.join(SCRIPT_DIR, "ALL_VC_LEADS.csv")
 BACKLOG_FILE = os.path.join(SCRIPT_DIR, "ALAMAT_RESEARCH_BACKLOG.csv")
 ADV_FILE = os.path.join(SCRIPT_DIR, "ALAMAT_ADV_SIGNALS.csv")
+FUND_MOMENTUM_FILE = os.path.join(SCRIPT_DIR, fund_momentum.FUNDS_FILE)
 LOGS_FILE = os.path.join(SCRIPT_DIR, "pipeline_run.log")
 # Vercel serverless functions stop after each response and discard written files,
 # so the hosted dashboard starts the "Refresh SEC Leads" GitHub Action instead of
@@ -87,13 +89,26 @@ def prepare_lead_for_display(row):
 _leads_cache = {"key": None, "leads": []}
 
 
+def mark_fund_momentum(rows, names_of):
+    """Add the Fund Momentum note and link to rows whose manager Fund Momentum has flagged.
+
+    names_of gives the names a row is known by (fund, firm, adviser); any of them may match.
+    """
+    index = fund_momentum.flag_index(FUND_MOMENTUM_FILE)
+    for row in rows:
+        flag = next((found for name in names_of(row) if name and index
+                     for found in [fund_momentum.flag_for(name, index)] if found), None)
+        row["fund_momentum_note"] = flag["note"] if flag else ""
+        row["fund_momentum_url"] = flag["link"] if flag else ""
+
+
 def file_version(path):
     return os.path.getmtime(path) if os.path.exists(path) else None
 
 
 def load_display_leads():
     """Return VC leads prepared for the dashboard, cached until either data file changes."""
-    key = (file_version(LEADS_FILE), file_version(ADV_FILE))
+    key = (file_version(LEADS_FILE), file_version(ADV_FILE), file_version(FUND_MOMENTUM_FILE))
     if _leads_cache["key"] == key:
         return _leads_cache["leads"]
 
@@ -110,6 +125,7 @@ def load_display_leads():
         lead.update(adv_index.match(lead, lead["linkedin_search_firm"], phone_counts) or {})
     mark_fund2_raises(leads)
     mark_repeat_filers(leads)
+    mark_fund_momentum(leads, lambda lead: (lead.get("name"), lead.get("firm_name"), lead.get("sec_vehicle_name")))
 
     _leads_cache.update(key=key, leads=leads)
     return leads
@@ -265,6 +281,7 @@ def research_data():
         return jsonify({'rows': [], 'days': []})
     with open(path, encoding='utf-8', newline='') as f:
         rows = list(csv.DictReader(f))
+    mark_fund_momentum(rows, lambda row: (row.get('fund'), row.get('brand')))
     rows.sort(key=lambda row: row.get('researched_on', ''), reverse=True)
     days = sorted({row.get('researched_on', '') for row in rows}, reverse=True)
     return jsonify({'rows': rows, 'days': days})
@@ -290,6 +307,7 @@ def adv_data():
         if os.path.exists(review_path):
             with open(review_path, encoding='utf-8') as f:
                 reviews = json.load(f)
+        mark_fund_momentum(rows, lambda row: (row.get('business_name'), row.get('legal_adviser_name')))
         for row in rows:
             row['review'] = reviews.get(row['crd_number'], {})
             for key in ('record_type', 'adv_id', 'source_url', 'feed_date', 'phone', 'new_to_snapshot', 'verification_status', 'freshness_bucket'):

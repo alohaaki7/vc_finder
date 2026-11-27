@@ -109,6 +109,24 @@ class QueueTests(unittest.TestCase):
         self.assertEqual([(priority, item["name"]) for priority, item in queue],
                          [("Added by you", "Old Hand Capital Growth"), ("Grok", "Brand New Ventures")])
 
+    def test_fund_momentum_lead_uses_its_profile_site_and_keeps_the_note(self):
+        rows = [{"fund": "Ascension Capital", "source": "Fund Momentum", "added_on": "2026-11-27",
+                 "website": "https://ascensioncapital.vc/", "linkedin": "https://www.linkedin.com/company/ascensioncapitalvc",
+                 "link": "https://fundmomentum.vc/blog/ascension", "people": "",
+                 "note": "Flagged by Fund Momentum: first close of C$30M, pre-seed, reported 2026-11-27."}]
+        lead_row = daily_research.inbox_leads(rows)[0]
+
+        class DeadTreg(FakeTreg):
+            def google(self, query):
+                return None
+        with patch.object(daily_research.grade_websites, "grade_site",
+                          return_value={"grade": "adequate", "words": 800, "linkedin": ""}):
+            row = daily_research.research("Fund Momentum", lead_row, DeadTreg())
+        self.assertEqual((row["website"], row["site_status"], row["source"]),
+                         ("https://ascensioncapital.vc/", "Has a site", "Fund Momentum"))
+        self.assertEqual(row["linkedin"], "https://www.linkedin.com/company/ascensioncapitalvc")
+        self.assertTrue(row["note"].startswith("Flagged by Fund Momentum"))
+
     def test_adviser_names_become_firm_names(self):
         cases = {
             "FIRST RAYS VENTURE PARTNERS MANAGEMENT COMPANY": "First Rays Venture Partners",
